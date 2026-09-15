@@ -1,0 +1,131 @@
+COTIZA — PASOS PARA ABRIR LA APLICACIÓN EN TU COMPUTADORA
+======================================================
+
+No necesitas programar. Sigue estos pasos en orden.
+IMPORTANTE: localhost:3000 no abrirá hasta que completes el inicio del paso 4.
+
+1. DESCOMPRIME LA DESCARGA
+------------------------
+Busca cotiza-local.zip en tu carpeta Descargas.
+
+Windows:
+- Haz clic derecho sobre el ZIP y selecciona «Extraer todo».
+- Selecciona una carpeta y pulsa «Extraer».
+
+macOS:
+- Haz doble clic en el ZIP para descomprimirlo.
+
+Linux:
+- Abre el ZIP con el gestor de archivos y elige «Extraer».
+
+Entra en la carpeta extraída llamada cotiza. Dentro verás estos archivos:
+  LEEME-PRIMERO.txt
+  README.md
+  package.json
+  INICIAR-WINDOWS.cmd
+  iniciar-local.sh
+
+No ejecutes los archivos desde dentro del ZIP: extrae todo primero.
+
+2. INSTALA NODE.JS
+-----------------
+- Abre https://nodejs.org/ en tu navegador.
+- Descarga una versión LTS 22 o superior para tu sistema operativo.
+- Ejecuta el instalador y completa la instalación.
+- Si tenías una terminal abierta, ciérrala y vuelve a abrirla después.
+
+Node.js incluye npm. No necesitas instalar npm por separado.
+
+3. INSTALA Y ABRE DOCKER DESKTOP
+-------------------------------
+- Abre https://www.docker.com/products/docker-desktop/.
+- Descarga el instalador correspondiente a tu computadora.
+- Instálalo. Reinicia tu computadora si el instalador lo solicita.
+- Abre Docker Desktop y espera a que termine de iniciar.
+- Déjalo abierto mientras uses Cotiza.
+
+En Windows, completa la configuración de WSL 2 si Docker la solicita.
+En Linux también puedes usar Docker Engine con Docker Compose v2.
+
+Docker prepara PostgreSQL por ti. No necesitas instalar PostgreSQL aparte.
+
+4. EJECUTA COTIZA
+----------------
+ELIGE SOLO LA OPCIÓN DE TU SISTEMA OPERATIVO:
+
+WINDOWS
+- Abre la carpeta cotiza que descomprimiste en el paso 1.
+- Haz doble clic en INICIAR-WINDOWS.cmd.
+- Se abrirá una ventana con el progreso. No la cierres.
+- No necesitas escribir comandos ni ejecutarlo como administrador.
+
+MACOS
+- Abre la aplicación Terminal.
+- Escribe cd seguido de un espacio, sin pulsar Enter todavía.
+- Arrastra la carpeta cotiza desde Finder a la ventana de Terminal.
+- Pulsa Enter. Así la terminal queda situada en la carpeta correcta.
+- Escribe el siguiente comando y pulsa Enter:
+
+  bash iniciar-local.sh
+
+LINUX
+- Abre la carpeta cotiza en el gestor de archivos.
+- Usa «Abrir en terminal», si está disponible.
+- Escribe el siguiente comando y pulsa Enter:
+
+  bash iniciar-local.sh
+
+El iniciador realiza estas tareas automáticamente:
+- Crea la configuración local privada y una contraseña aleatoria.
+- Descarga las dependencias, si aún no están instaladas.
+- Inicia PostgreSQL en Docker.
+- Prepara las tablas de Cotiza.
+- Inicia el servidor local de la aplicación.
+
+La primera vez puede tardar varios minutos según tu conexión a Internet.
+Si aparece un error, revisa el mensaje antes de continuar; la aplicación
+no estará lista si uno de los pasos de preparación falla.
+
+5. ABRE LA APLICACIÓN EN TU NAVEGADOR
+-----------------------------------
+Espera a que la terminal muestre «Ready».
+Abre Chrome, Edge, Firefox o Safari y escribe en la barra de direcciones:
+
+  http://localhost:3000
+
+También puedes usar http://127.0.0.1:3000.
+Si el puerto 3000 estaba ocupado, abre la dirección que muestre la terminal.
+
+DEJA LA TERMINAL Y DOCKER ABIERTOS MIENTRAS USES COTIZA.
+En Configuración puedes poner el nombre, correo y datos de tu negocio.
+La instalación local comienza con clientes y cotizaciones de demostración;
+no importa los datos guardados en la vista previa de esta plataforma.
+
+PARA CERRAR Y VOLVER A ABRIR
+---------------------------
+- Para cerrar Cotiza: vuelve a la terminal y pulsa Ctrl + C.
+- Otro día: abre Docker Desktop y repite el paso 4 y el paso 5.
+- No necesitas reinstalar Node.js ni Docker en cada inicio.
+- Tus datos se conservan en el volumen de PostgreSQL de Docker.
+- No borres el volumen de Docker ni el archivo .env.local.
+
+SI NO ABRE LA PÁGINA
+-------------------
+- Comprueba que Docker Desktop esté abierto y haya terminado de iniciar.
+- Comprueba que ejecutaste el archivo desde la carpeta descomprimida.
+- Comprueba que la terminal siga abierta y haya mostrado «Ready».
+- Si indica que el puerto 3000 está ocupado, usa el puerto que te muestre.
+- Si falta Node.js, instálalo y vuelve a abrir el archivo de inicio.
+- Si persiste el error, consulta «Problemas frecuentes» en README.md.
+
+IMPORTANTE AL COMPARTIR COTIZACIONES
+-----------------------------------
+Los enlaces localhost solo funcionan en TU computadora. No funcionarán
+para un cliente en otro equipo. Mientras uses Cotiza localmente, descarga
+el PDF y adjúntalo manualmente por WhatsApp o correo.
+
+Esta versión no tiene inicio de sesión para el administrador. No publiques
+el panel en Internet ni abras sus puertos sin añadir protección de acceso.
+
+Si ya tienes PostgreSQL y prefieres configurarlo manualmente, sigue la
+opción correspondiente de README.md en lugar de estos archivos de inicio.

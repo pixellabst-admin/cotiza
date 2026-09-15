@@ -1,0 +1,387 @@
+COTIZA — SUBIR A GITHUB, CREAR LA BASE EN NEON Y PUBLICAR EN VERCEL
+==================================================================
+
+Guía paso a paso. Haz las tres partes en este orden: GitHub, Neon, Vercel.
+Tiempo aproximado: 40 a 60 minutos la primera vez.
+
+ANTES DE EMPEZAR, LEE ESTO
+--------------------------
+El panel ya tiene inicio de sesión con correo y contraseña. Tus clientes
+siguen abriendo sus cotizaciones por enlace, sin necesidad de cuenta.
+
+Para que nadie más reclame el panel, en la PARTE 3 configuras la variable
+ADMIN_SETUP_CODE ANTES de abrir la dirección publicada por primera vez.
+
+Ten en cuenta los límites actuales: no hay recuperación de contraseña por
+correo, ni verificación en dos pasos, ni varios usuarios con permisos
+distintos. Guarda bien tu contraseña.
+
+Necesitas tener en tu computadora:
+  - La carpeta del proyecto descomprimida (la que contiene package.json).
+  - Node.js 22 o superior instalado.
+  - Una cuenta de correo para registrarte en los tres servicios.
+
+Los tres servicios tienen planes de pago y condiciones de uso. El plan Hobby
+de Vercel es solo para uso personal no comercial: si vas a cotizar para tu
+negocio, revisa y contrata un plan que permita uso comercial.
+
+
+=====================================================================
+PARTE 1 — SUBIR EL PROYECTO A GITHUB
+=====================================================================
+
+PASO 1.1 — Crea tu cuenta
+-------------------------
+1. Entra a https://github.com/signup
+2. Registra tu correo, contraseña y nombre de usuario.
+3. Confirma el correo que te envían.
+4. Activa la verificación en dos pasos cuando te la ofrezca.
+
+PASO 1.2 — Crea el repositorio PRIVADO
+--------------------------------------
+1. Entra a https://github.com/new
+2. Repository name: escribe   cotiza
+3. Description: opcional.
+4. MUY IMPORTANTE: marca la opción   Private
+   No elijas Public: el código quedaría visible para cualquiera.
+5. NO marques "Add a README file".
+   NO agregues .gitignore ni licencia desde esa pantalla.
+   El proyecto ya trae esos archivos y se duplicarían.
+6. Pulsa   Create repository
+7. Queda abierta una página con instrucciones. No la cierres:
+   ahí aparece la dirección de tu repositorio, parecida a
+   https://github.com/TU-USUARIO/cotiza.git
+
+PASO 1.3 — Instala Git en tu computadora
+----------------------------------------
+Windows y macOS: descarga desde https://git-scm.com/downloads
+Linux: usa el gestor de paquetes de tu distribución.
+
+Para comprobar que quedó instalado, abre una terminal y escribe:
+
+   git --version
+
+Si responde con un número de versión, está listo.
+Si dice que no se reconoce el comando, cierra la terminal, ábrela otra vez
+y vuelve a probar.
+
+PASO 1.4 — Abre una terminal en la carpeta del proyecto
+-------------------------------------------------------
+La carpeta correcta es la que contiene el archivo package.json.
+
+Windows:
+  - Abre esa carpeta en el Explorador de archivos.
+  - Haz clic en la barra donde aparece la ruta.
+  - Escribe   cmd   y pulsa Enter.
+
+macOS:
+  - Abre Terminal.
+  - Escribe   cd   seguido de un espacio.
+  - Arrastra la carpeta del proyecto hasta la ventana de Terminal.
+  - Pulsa Enter.
+
+Linux:
+  - Clic derecho sobre la carpeta y elige "Abrir en terminal".
+
+PASO 1.5 — Revisa que no subas contraseñas
+------------------------------------------
+Ejecuta este comando dentro de la carpeta del proyecto:
+
+   node scripts/revisar-antes-de-subir.mjs
+
+El verificador revisa que tus archivos .env queden fuera del envío y te
+avisa si detecta algo que no deberías publicar. No modifica ni sube nada.
+Si marca un problema, corrígelo antes de continuar.
+
+PASO 1.6 — Prepara el envío
+---------------------------
+Escribe estos comandos uno por uno, pulsando Enter después de cada uno.
+Sustituye el correo y el nombre por los tuyos:
+
+   git init
+   git config user.email "tu-correo@ejemplo.com"
+   git config user.name "Tu Nombre"
+   git add .
+   git status
+
+El comando git status muestra la lista de archivos que se van a subir.
+Revísala. NO deben aparecer:
+
+   .env          .env.local          .env.web.local
+
+Si aparece alguno, detente y ejecuta de nuevo el verificador del paso 1.5.
+
+PASO 1.7 — Envía el proyecto a GitHub
+-------------------------------------
+Sustituye TU-USUARIO por tu nombre de usuario de GitHub:
+
+   git commit -m "Primera version de Cotiza"
+   git branch -M main
+   git remote add origin https://github.com/TU-USUARIO/cotiza.git
+   git push -u origin main
+
+Te pedirá iniciar sesión. Se abrirá una ventana del navegador para
+autorizar el acceso; acepta con tu cuenta de GitHub.
+
+Si te pide usuario y contraseña en la terminal, la contraseña normal de
+GitHub no funciona. Crea un token en:
+https://github.com/settings/tokens
+y pégalo cuando pida la contraseña.
+
+PASO 1.8 — Comprueba
+--------------------
+Actualiza la página de tu repositorio en GitHub. Debes ver las carpetas
+src, scripts y los archivos README.md y package.json.
+Confirma que junto al nombre del repositorio aparezca la etiqueta Private.
+
+ALTERNATIVA SIN COMANDOS
+------------------------
+Si prefieres no usar la terminal, instala GitHub Desktop desde
+https://desktop.github.com/ y usa:
+   File -> Add local repository -> selecciona la carpeta del proyecto
+   Publish repository -> marca "Keep this code private"
+Aun así, ejecuta antes el verificador del paso 1.5.
+
+
+=====================================================================
+PARTE 2 — CREAR LA BASE DE DATOS EN NEON
+=====================================================================
+
+PASO 2.1 — Crea tu cuenta y el proyecto
+---------------------------------------
+1. Entra a https://neon.com/ y regístrate. Puedes entrar con tu cuenta
+   de GitHub.
+2. Crea un proyecto nuevo.
+   - Project name: escribe   cotiza
+   - Postgres version: deja la que viene seleccionada.
+   - Region: elige la más cercana a ti o a tus clientes.
+3. Pulsa el botón para crear el proyecto y espera unos segundos.
+
+PASO 2.2 — Copia las DOS conexiones
+-----------------------------------
+En el panel del proyecto, entra a   Connect   (Connect to your database).
+
+Verás un cuadro con la cadena de conexión y un interruptor o menú llamado
+Connection pooling (agrupación de conexiones). Necesitas dos versiones:
+
+  A) CONEXION CON POOL (Connection pooling activado)
+     Su dirección incluye   -pooler
+     Se usará en Vercel, en la variable DATABASE_URL.
+
+  B) CONEXION DIRECTA (Connection pooling desactivado)
+     No incluye   -pooler
+     Se usará una sola vez desde tu computadora para crear las tablas.
+
+Copia ambas y guárdalas temporalmente en un lugar privado.
+
+IMPORTANTE:
+  - Las dos incluyen la contraseña de la base. No las compartas, no las
+    publiques en GitHub ni las envíes por chat o correo.
+  - No borres el final   ?sslmode=require   si aparece: protege la conexión.
+
+PASO 2.3 — Crea las tablas
+--------------------------
+Este paso se hace desde tu computadora, una sola vez.
+
+1. En la carpeta del proyecto, crea un archivo llamado exactamente:
+
+      .env.web.local
+
+   En Windows, con el Bloc de notas, elige "Guardar como", escribe el
+   nombre entre comillas: ".env.web.local" y en Tipo selecciona
+   "Todos los archivos". Así evitas que se guarde como .txt.
+
+2. Dentro escribe una sola línea: el nombre de la variable, el signo igual
+   y, pegada a continuación, tu CONEXION DIRECTA del paso 2.2 B.
+
+      WEB_DATABASE_URL=
+
+   No dejes espacios alrededor del signo igual ni uses comillas.
+
+3. Guarda el archivo. Está protegido por .gitignore, así que no se sube
+   a GitHub.
+
+4. En la terminal, dentro de la carpeta del proyecto, ejecuta:
+
+      npm install
+      npx drizzle-kit push --config=drizzle.web.config.ts
+
+5. Cuando termine, debe informar que aplicó los cambios. Se crean tres
+   tablas: customers, quotes y business_settings.
+
+Si en pantalla aparece una propuesta para BORRAR tablas que no esperabas,
+responde que no y revisa que la conexión sea la de tu base nueva de Cotiza.
+
+PASO 2.4 — Comprueba
+--------------------
+En Neon, entra a   Tables   en el menú del proyecto y confirma que
+aparecen las tres tablas. Por ahora están vacías: es lo correcto.
+
+
+=====================================================================
+PARTE 3 — PUBLICAR EN VERCEL
+=====================================================================
+
+PASO 3.1 — Crea tu cuenta
+-------------------------
+1. Entra a https://vercel.com/signup
+2. Elige   Continue with GitHub   y autoriza el acceso.
+3. Si te pregunta el tipo de uso, selecciona el que corresponda a tu caso.
+   Recuerda: el plan Hobby es solo para uso personal no comercial.
+
+PASO 3.2 — Importa el repositorio
+---------------------------------
+1. En el panel, pulsa   Add New...   y elige   Project
+2. Aparece la lista de repositorios de GitHub. Busca   cotiza
+3. Si no aparece, pulsa el enlace para configurar los permisos de GitHub y
+   concede acceso a ese repositorio.
+4. Pulsa   Import
+
+PASO 3.3 — Revisa la configuración
+----------------------------------
+En la pantalla de configuración comprueba:
+
+   Framework Preset ....... Next.js
+   Root Directory ......... ./    (donde está package.json)
+   Build Command .......... npm run build   (o el valor predeterminado)
+   Output Directory ....... el predeterminado; no escribas out
+   Install Command ........ el predeterminado
+
+PASO 3.4 — Agrega la conexión y el código de instalación
+--------------------------------------------------------
+Antes de desplegar, abre la sección   Environment Variables.
+
+Variable 1, la base de datos:
+
+   Key (nombre) ..... DATABASE_URL
+   Value (valor) .... tu CONEXION CON POOL del paso 2.2 A
+   Environment ...... Production
+
+Variable 2, protege el primer acceso al panel:
+
+   Key (nombre) ..... ADMIN_SETUP_CODE
+   Value (valor) .... una frase larga que solo tú conozcas
+   Environment ...... Production
+
+Inventa esa frase ahora y guárdala: te la pedirá el formulario cuando
+crees tu usuario en el paso 3.7. Sin esta variable, la primera persona que
+abra tu dirección podría crear el acceso de administrador.
+
+Escribe el nombre exactamente así, en mayúsculas: DATABASE_URL
+Si el servicio ofrece guardarla como secreto (Secret), elige esa opción.
+
+Nunca uses aquí localhost ni 127.0.0.1: en Vercel esas direcciones no
+apuntan a tu computadora.
+
+PASO 3.5 — Despliega
+--------------------
+1. Pulsa   Deploy
+2. Espera unos minutos mientras compila.
+3. Al terminar aparece la dirección de tu proyecto, terminada en
+   .vercel.app
+
+PASO 3.6 — Crea tu usuario del panel
+------------------------------------
+1. Abre la dirección .vercel.app en tu navegador.
+2. Te llevará a la pantalla   Crea tu acceso
+3. Escribe tu nombre, tu correo y una contraseña de al menos 10
+   caracteres. Guárdala bien: no hay recuperación por correo.
+4. En   Código de instalación   escribe el valor de ADMIN_SETUP_CODE que
+   definiste en el paso 3.4.
+5. Pulsa   Crear acceso y entrar
+
+Hazlo cuanto antes, apenas termine el despliegue.
+
+PASO 3.7 — Comprueba la protección
+----------------------------------
+1. Abre la misma dirección en una ventana de incógnito.
+2. Debe mostrar la pantalla de inicio de sesión, no el panel.
+3. Si ves el panel sin iniciar sesión, detente y revisa el paso anterior
+   antes de cargar datos reales.
+
+Para mayor seguridad, puedes añadir además la protección de Vercel en
+Settings -> Deployment Protection -> Vercel Authentication -> All
+Deployments. Ten en cuenta que esa capa adicional también bloquea los
+enlaces de cotización de tus clientes: con ella activada, envíales el PDF.
+
+PASO 3.8 — Configura tu negocio
+-------------------------------
+1. Ya dentro del panel, entra a   Configuración   y escribe el nombre,
+   correo, teléfono, moneda e impuesto de tu negocio.
+2. La primera vez se crean clientes y cotizaciones de ejemplo. Elimínalos
+   cuando ya no los necesites.
+3. Crea una cotización de prueba, recarga la página y comprueba que se
+   conserva. Descarga su PDF.
+4. Para salir, usa el botón de cerrar sesión, junto a tu nombre en la
+   parte inferior del menú lateral.
+
+
+=====================================================================
+DESPUES DE PUBLICAR
+=====================================================================
+
+PARA ACTUALIZAR EL PROYECTO MAS ADELANTE
+----------------------------------------
+Windows:
+   Haz doble clic en   ACTUALIZAR-GITHUB.bat
+
+macOS o Linux:
+   Ejecuta   bash actualizar.sh
+
+El archivo revisa que no subas contraseñas, te muestra los cambios, te
+pide una descripción y los envía a GitHub. Vercel publica la nueva
+versión automáticamente en unos minutos.
+
+Si prefieres escribirlo a mano:
+
+   git add .
+   git commit -m "Describe aqui el cambio"
+   git push
+
+SI OLVIDAS TU CONTRASEÑA DEL PANEL
+----------------------------------
+No hay recuperación por correo. Entra a Neon, abre la tabla admin_users y
+borra la fila de tu usuario. Al volver a abrir la dirección, aparecerá de
+nuevo la pantalla "Crea tu acceso".
+
+SI CAMBIAS UNA VARIABLE EN VERCEL
+---------------------------------
+Debes volver a desplegar para que tome efecto. Entra a Deployments,
+abre el último despliegue y elige Redeploy.
+
+TUS DATOS LOCALES NO SE COPIAN SOLOS
+------------------------------------
+La base de Neon empieza vacía. Las cotizaciones que tengas en tu
+computadora no se transfieren al subir el código. Si necesitas
+conservarlas, haz una copia de respaldo de PostgreSQL y restáurala en la
+base nueva antes de empezar a usarla.
+
+RESPALDOS
+---------
+Revisa en Neon las opciones de respaldo y restauración de tu plan, y
+prueba una restauración antes de depender de ellas.
+
+ERRORES FRECUENTES
+------------------
+"Falta WEB_DATABASE_URL"
+   El archivo .env.web.local no existe, está mal escrito o se guardó como
+   .txt. Revisa el nombre exacto y que contenga la variable.
+
+"La configuración web no admite localhost"
+   Pegaste la conexión de tu Docker local. Usa la conexión de Neon.
+
+Error de base de datos en la página publicada
+   Revisa que DATABASE_URL en Vercel tenga la conexión CON pool, que esté
+   asignada a Production y que hayas vuelto a desplegar después de
+   agregarla.
+
+El repositorio no aparece en Vercel
+   Concede permisos a ese repositorio desde la configuración de GitHub
+   dentro de Vercel.
+
+Error al hacer push por autenticación
+   Crea un token en https://github.com/settings/tokens y úsalo como
+   contraseña.
+
+Para ver la base de datos y sus tablas, consulta BASE-DE-DATOS.md.
+Para los detalles técnicos y de seguridad, consulta PUBLICAR-WEB.md.

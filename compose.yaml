@@ -1,0 +1,25 @@
+# Solo para desarrollo local. Ejecutar con:
+# docker compose --env-file .env.local up -d --wait
+name: cotiza-local
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Ejecuta node scripts/setup-local.mjs primero}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta la contraseña en .env.local}
+      POSTGRES_DB: ${POSTGRES_DB:?Falta el nombre de la base en .env.local}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - cotiza_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  cotiza_postgres_data:

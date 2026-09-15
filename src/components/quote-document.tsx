@@ -1,0 +1,38 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { Check, CheckCircle2, Download, LockKeyhole, LoaderCircle, ArrowUpRight } from "lucide-react";
+import type { Business, Customer, Quote } from "@/lib/types";
+import { calculateTotals, formatDate, initials, money } from "@/lib/utils";
+import { downloadQuotePdf } from "@/lib/export";
+import { Brand, Modal, StatusBadge } from "./ui";
+
+export function QuoteDocument({ quote, customer, business }: { quote: Quote; customer: Customer; business: Business }) {
+  const { discountCents } = calculateTotals(quote.items, quote.taxRate, quote.discountPercent);
+  return <article className="quote-document"><header className="document-header"><div className="document-company"><span className="company-monogram">{initials(business.name)}</span><div><strong>{business.name}</strong><span>{business.email}</span><span>{business.phone}</span></div></div><div className="document-number"><span>COTIZACIÓN</span><strong>{quote.number}</strong><StatusBadge status={quote.status} /></div></header><div className="document-parties"><div><span className="eyebrow">PREPARADA PARA</span><h3>{customer.name}</h3><p>{customer.contact}</p><p>{customer.email}</p><p>{customer.phone}</p></div><dl><div><dt>Fecha de emisión</dt><dd>{formatDate(quote.issueDate, true)}</dd></div><div><dt>Válida hasta</dt><dd>{formatDate(quote.validUntil, true)}</dd></div><div><dt>Moneda</dt><dd>{quote.currency}</dd></div></dl></div><h2 className="document-title">{quote.title}</h2><div className="document-table-wrap"><table className="document-table"><thead><tr><th>Concepto</th><th>Cant.</th><th>Precio unitario</th><th>Importe</th></tr></thead><tbody>{quote.items.map((item, index) => <tr key={index}><td>{item.description}</td><td>{item.quantity}</td><td>{money(Math.round(item.unitPrice * 100), quote.currency)}</td><td>{money(Math.round(item.quantity * item.unitPrice * 100), quote.currency)}</td></tr>)}</tbody></table></div><div className="document-totals"><div><span>Subtotal</span><strong>{money(quote.subtotalCents, quote.currency)}</strong></div>{discountCents > 0 && <div><span>Descuento ({quote.discountPercent}%)</span><strong>−{money(discountCents, quote.currency)}</strong></div>}<div><span>IVA ({quote.taxRate}%)</span><strong>{money(quote.taxCents, quote.currency)}</strong></div><div className="document-total"><span>Total</span><strong>{money(quote.totalCents, quote.currency)} <small>{quote.currency}</small></strong></div></div>{quote.notes && <section className="document-terms"><span className="eyebrow">TÉRMINOS Y CONDICIONES</span><p>{quote.notes}</p></section>}{quote.acceptedBy && <div className="document-accepted"><CheckCircle2 size={17} /><span>Aceptada por <strong>{quote.acceptedBy}</strong></span></div>}<footer className="document-footer"><span>Gracias por confiar en nuestro trabajo.</span><span>{business.address}</span></footer></article>;
+}
+
+export function PublicQuote({ quote: initialQuote, customer, settings }: { quote: Quote; customer: Customer; settings: Business }) {
+  const [quote, setQuote] = useState(initialQuote);
+  const [accepting, setAccepting] = useState(false);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function accept(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError("");
+    try {
+      const response = await fetch(`/api/public/${quote.shareToken}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      setQuote({ ...quote, status: "accepted", acceptedBy: name }); setAccepting(false);
+    } catch (error) { setError(error instanceof Error ? error.message : "No pudimos registrar la aceptación"); }
+    finally { setBusy(false); }
+  }
+  async function pdf() {
+    setPdfBusy(true); setError("");
+    try { await downloadQuotePdf(quote, customer, settings); } catch { setError("No pudimos generar el PDF. Inténtalo de nuevo."); }
+    finally { setPdfBusy(false); }
+  }
+  return <div className="public-page"><header className="public-header"><a href="/" aria-label="Inicio de Cotiza"><Brand small /></a><span><LockKeyhole size={14} />Documento compartido de forma segura</span></header><main className="public-main"><div className="public-intro"><div><span className="eyebrow">UNA NUEVA OPORTUNIDAD PARA CREAR</span><h1>Hagamos algo increíble.</h1><p>{settings.name} preparó esta propuesta especialmente para ti.</p></div><button className="button button-secondary" onClick={pdf} disabled={pdfBusy}>{pdfBusy ? <LoaderCircle size={16} className="spin" /> : <Download size={16} />}Descargar PDF</button></div>{error && !accepting && <div className="form-error" role="alert">{error}</div>}<QuoteDocument quote={quote} customer={customer} business={settings} /><div className={`public-accept-bar ${quote.status === "accepted" ? "is-accepted" : ""}`}><div><CheckCircle2 size={25} /><div><h3>{quote.status === "accepted" ? "¡Es oficial! Tu cotización fue aceptada." : quote.status === "expired" ? "Esta cotización ha vencido" : quote.status === "draft" ? "Una propuesta en preparación" : "¿Todo listo para dar el siguiente paso?"}</h3><p>{quote.status === "accepted" ? "El equipo ya puede ver tu confirmación. Gracias por tu confianza." : quote.status === "expired" ? "Contacta al emisor para solicitar una nueva vigencia." : quote.status === "draft" ? "El emisor está finalizando los detalles de esta cotización." : `Puedes aceptar esta propuesta hasta el ${formatDate(quote.validUntil, true)}.`}</p></div></div>{quote.status === "sent" && <button className="button button-primary" onClick={() => setAccepting(true)}>Aceptar cotización<ArrowUpRight size={17} /></button>}{quote.status === "expired" && <a className="button button-secondary" href={`mailto:${settings.email}?subject=${encodeURIComponent(`Actualizar cotización ${quote.number}`)}`}>Contactar al emisor</a>}</div><footer className="public-footer">Menos papeleo. Más posibilidades.<Brand small /></footer></main>{accepting && <Modal title="Vamos a trabajar juntos" subtitle="Confirma que estás de acuerdo con esta propuesta." onClose={() => { if (!busy) setAccepting(false); }}><form onSubmit={accept}><div className="modal-body"><div className="accept-summary"><span>{quote.number} · {quote.title}</span><strong>{money(quote.totalCents, quote.currency)} {quote.currency}</strong></div><label className="form-field">Tu nombre completo<input required minLength={2} maxLength={180} value={name} onChange={(event) => setName(event.target.value)} placeholder="Escribe tu nombre" /></label><label className="checkbox-label"><input type="checkbox" required />He leído y acepto los conceptos, importes y condiciones de esta cotización.</label>{error && <p className="form-error" role="alert">{error}</p>}</div><div className="modal-footer"><button type="button" className="button button-secondary" onClick={() => setAccepting(false)} disabled={busy}>Volver</button><button className="button button-primary" disabled={busy}>{busy ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}Confirmar aceptación</button></div></form></Modal>}</div>;
+}

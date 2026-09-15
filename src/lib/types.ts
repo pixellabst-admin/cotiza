@@ -1,0 +1,20 @@
+import type { customers, quotes, businessSettings } from "@/db/schema";
+export type { QuoteItem, QuoteStatus, ShareChannel } from "@/db/schema";
+export type Customer = Omit<typeof customers.$inferSelect, "createdAt"> & { createdAt: string };
+export type Quote = Omit<typeof quotes.$inferSelect, "createdAt"> & { createdAt: string };
+export type Business = typeof businessSettings.$inferSelect;
+export type AppData = { customers: Customer[]; quotes: Quote[]; settings: Business };
+export type View = "dashboard" | "quotes" | "customers" | "reports" | "settings";
+export type Period = "month" | "previous" | "year";
+export type QuoteInput = {
+  id?: number;
+  title: string;
+  customerId: number;
+  issueDate: string;
+  validUntil: string;
+  items: import("@/db/schema").QuoteItem[];
+  taxRate: number;
+  discountPercent: number;
+  notes: string;
+  status: import("@/db/schema").QuoteStatus;
+};

@@ -1,0 +1,24 @@
+# Dependencies and generated builds
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Private environment files
+.env
+.env.*
+!.env.example
+
+# Local test artifacts and logs
+artifacts/
+playwright-report/
+test-results/
+*.log
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

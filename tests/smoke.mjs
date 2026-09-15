@@ -1,0 +1,194 @@
+import assert from 'node:assert/strict';
+import { mkdir, readFile } from 'node:fs/promises';
+import { chromium } from 'playwright';
+
+const base = process.env.BASE_URL || 'http://127.0.0.1:3000';
+const marker = `Prueba Cotiza ${Date.now()}`;
+const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, permissions: ['clipboard-read', 'clipboard-write'] });
+const page = await context.newPage();
+const errors = [];
+page.on('pageerror', (error) => errors.push(error.message));
+let customerId;
+const quoteIds = [];
+let originalSettings;
+let checks = 0;
+const check = (condition, message) => { assert.ok(condition, message); checks++; console.log(`✓ ${message}`); };
+// Requests run inside the page so they carry the browser session cookie.
+async function api(action, values = {}) {
+  const outcome = await page.evaluate(async (payload) => {
+    const response = await fetch("/api/workspace", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    return { status: response.status, ok: response.ok, result: await response.json() };
+  }, { action, ...values });
+  return { response: { status: () => outcome.status, ok: () => outcome.ok }, result: outcome.result };
+}
+async function workspace() {
+  return page.evaluate(async () => (await (await fetch("/api/workspace")).json()).data);
+}
+function mutation(action) {
+  return page.waitForResponse((response) => response.url().endsWith('/api/workspace') && response.request().method() === 'POST' && response.request().postDataJSON()?.action === action);
+}
+
+try {
+  await mkdir('artifacts', { recursive: true });
+  // Sign in first: the workspace and its API are protected.
+  const account = { email: `prueba-${Date.now()}@example.invalid`, password: 'ContrasenaDePrueba2468', name: 'Administrador de prueba' };
+  const anonymous = await context.request.get(`${base}/api/workspace`);
+  check(anonymous.status() === 401, 'Workspace API rejects requests without a session');
+  await page.goto(base, { waitUntil: 'networkidle' });
+  check(/\/login$/.test(page.url()), 'Signed-out visitors are redirected to the access screen');
+  const created = await page.evaluate(async (data) => {
+    const response = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "setup", ...data, setupCode: "" }) });
+    return { status: response.status, ok: response.ok };
+  }, account);
+  if (created.status === 409) {
+    const signedIn = await page.evaluate(async (data) => (await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "login", ...data }) })).ok, account);
+    check(signedIn, 'Existing administrator can sign in');
+  } else {
+    check(created.ok, 'First-run setup creates the administrator account');
+  }
+  await page.goto(base, { waitUntil: 'networkidle' });
+  check(!/\/login$/.test(page.url()), 'The signed-in administrator reaches the workspace');
+  const original = await workspace();
+  originalSettings = original.settings;
+  check(await page.getByRole('heading', { name: /Hola,/ }).isVisible(), 'Dashboard loads');
+  check(await page.locator('.stat-card').count() === 4, 'Four database-backed indicators are visible');
+  await page.screenshot({ path: 'artifacts/dashboard-desktop.png', fullPage: true });
+  await page.getByRole('button', { name: 'Clientes', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo cliente', exact: true }).click();
+  await page.getByLabel('Nombre del cliente o empresa', { exact: false }).fill(marker);
+  await page.getByLabel('Persona de contacto', { exact: true }).fill('Persona de prueba');
+  await page.getByLabel('Correo electrónico', { exact: true }).fill('pruebas@example.com');
+  await page.getByLabel('WhatsApp', { exact: false }).fill('+52 55 5555 5555');
+  const savedClient = mutation('saveCustomer');
+  await page.getByRole('button', { name: 'Guardar cliente', exact: true }).click();
+  customerId = (await (await savedClient).json()).resultId;
+  await page.getByRole('dialog').waitFor({ state: 'hidden' });
+  check((await workspace()).customers.some((customer) => customer.id === customerId), 'Client creation persists in PostgreSQL');
+  await page.getByRole('button', { name: `Editar ${marker}`, exact: true }).click();
+  await page.getByLabel('Persona de contacto', { exact: true }).fill('Contacto actualizado');
+  const updatedClient = mutation('saveCustomer');
+  await page.getByRole('button', { name: 'Guardar cliente', exact: true }).click();
+  await updatedClient;
+  await page.getByRole('dialog').waitFor({ state: 'hidden' });
+  check((await workspace()).customers.find((customer) => customer.id === customerId).contact === 'Contacto actualizado', 'Client edits persist');
+  const clientCard = page.locator('.customer-card').filter({ has: page.getByRole('heading', { name: marker, exact: true }) });
+  await clientCard.getByRole('button', { name: 'Cotizar', exact: true }).click();
+  await page.getByLabel('Nombre del proyecto', { exact: false }).fill(marker);
+  await page.getByLabel('Descripción del concepto 1', { exact: true }).fill('Diseño y desarrollo web');
+  await page.getByLabel('Cantidad del concepto 1', { exact: true }).fill('2');
+  await page.getByLabel('Precio del concepto 1', { exact: true }).fill('1500');
+  await page.getByRole('button', { name: 'Agregar concepto', exact: true }).click();
+  await page.getByLabel('Descripción del concepto 2', { exact: true }).fill('Mantenimiento mensual');
+  await page.getByLabel('Precio del concepto 2', { exact: true }).fill('500');
+  await page.getByLabel('Descuento porcentual', { exact: true }).fill('10');
+  await page.getByLabel('IVA porcentual', { exact: true }).fill('16');
+  check((await page.locator('.editor-grand-total').textContent()).includes('3,654.00'), 'Live item, discount and tax calculations are correct');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: 'artifacts/quote-editor.png' });
+  const savedQuote = mutation('saveQuote');
+  await page.getByRole('button', { name: 'Guardar y enviar', exact: true }).click();
+  const saveResult = await (await savedQuote).json();
+  check(!!saveResult.resultId, 'Saving a quotation returns its persistent ID');
+  const quoteId = saveResult.resultId;
+  quoteIds.push(quoteId);
+  let quote = saveResult.data.quotes.find((item) => item.id === quoteId);
+  check(quote.totalCents === 365400 && quote.subtotalCents === 350000 && quote.taxCents === 50400, 'Server recalculates all amounts in cents');
+  check(quote.status === 'draft', 'New quotation starts as a draft');
+  await page.getByRole('dialog', { name: 'Tu propuesta, un paso más cerca' }).waitFor();
+  await page.getByRole('button', { name: 'Copiar enlace', exact: true }).click();
+  check((await page.evaluate(() => navigator.clipboard.readText())).endsWith(quote.shareToken), 'Public quotation link copies correctly');
+  await context.route('https://wa.me/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<h1>WhatsApp handoff test — no message sent</h1>' }));
+  const shareRecord = mutation('recordShare');
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Abrir WhatsApp', exact: false }).click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  check(popup.url().startsWith('https://wa.me/525555555555?text='), 'WhatsApp handoff uses the normalized international phone number');
+  check(new URL(popup.url()).searchParams.get('text').includes(quote.shareToken), 'WhatsApp message contains the public link');
+  await popup.close();
+  await shareRecord;
+  check((await workspace()).quotes.find((item) => item.id === quoteId).status === 'draft', 'Opening WhatsApp does not falsely mark the quotation sent');
+  await page.getByRole('button', { name: 'Correo electrónico', exact: true }).click();
+  check(await page.getByLabel('Correo del destinatario', { exact: true }).inputValue() === 'pruebas@example.com', 'Email handoff uses the customer email');
+  check((await page.getByLabel('Asunto', { exact: true }).inputValue()).includes(quote.number), 'Email subject contains the quotation number');
+  const mailShare = mutation('recordShare');
+  await page.getByRole('button', { name: 'Abrir correo', exact: false }).click();
+  await mailShare;
+  check((await workspace()).quotes.find((item) => item.id === quoteId).sharedVia.includes('email'), 'Email sharing channel is recorded');
+  const markSent = mutation('setStatus');
+  await page.getByRole('button', { name: 'Sí, marcar como enviada', exact: true }).click();
+  await markSent;
+  await page.getByRole('dialog').waitFor({ state: 'hidden' });
+  check((await workspace()).quotes.find((item) => item.id === quoteId).status === 'sent', 'User confirmation updates status to sent');
+  await page.getByRole('button', { name: /^Cotizaciones/ }).first().click();
+  await page.getByRole('textbox', { name: 'Buscar cotización', exact: true }).fill(marker);
+  check(await page.locator('.quotes-table tbody tr').count() === 1, 'Quotation search filters by title');
+  await page.locator('.quote-title-cell').first().click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'PDF', exact: true }).click();
+  const download = await downloadPromise;
+  await download.saveAs('artifacts/test-quotation.pdf');
+  check(download.suggestedFilename() === `${quote.number}.pdf`, 'PDF has the expected filename');
+  check((await readFile('artifacts/test-quotation.pdf')).subarray(0, 4).toString() === '%PDF', 'Generated file is a valid PDF');
+  await page.getByRole('button', { name: 'Cerrar ventana', exact: true }).click();
+  const publicPage = await context.newPage();
+  publicPage.on('pageerror', (error) => errors.push(error.message));
+  await publicPage.goto(`${base}/cotizacion/${quote.shareToken}`, { waitUntil: 'networkidle' });
+  check(await publicPage.locator('.document-title').textContent() === marker, 'Public link displays the correct quotation');
+  await publicPage.getByRole('button', { name: 'Aceptar cotización', exact: true }).click();
+  await publicPage.getByLabel('Tu nombre completo', { exact: true }).fill('Cliente de prueba');
+  await publicPage.getByRole('checkbox').check();
+  const acceptance = publicPage.waitForResponse((response) => response.url().includes(`/api/public/${quote.shareToken}`));
+  await publicPage.getByRole('button', { name: 'Confirmar aceptación', exact: true }).click();
+  check((await acceptance).ok(), 'Client can accept the quotation securely using its token');
+  quote = (await workspace()).quotes.find((item) => item.id === quoteId);
+  check(quote.status === 'accepted' && quote.acceptedBy === 'Cliente de prueba', 'Acceptance and signer are stored in PostgreSQL');
+  await publicPage.close();
+  const guardedDelete = await api('deleteCustomer', { id: customerId });
+  check(guardedDelete.response.status() === 400, 'Customer deletion is blocked while quotations exist');
+  const invalid = await api('saveQuote', { title: marker, customerId, issueDate: quote.issueDate, validUntil: quote.validUntil, items: [{ description: 'Invalid', quantity: -1, unitPrice: 100 }], taxRate: 16, discountPercent: 0, notes: '', status: 'draft' });
+  check(invalid.response.status() === 400, 'Server rejects invalid negative quantities');
+  const acceptedEdit = await api('saveQuote', { ...quote, title: 'Should not change' });
+  check(acceptedEdit.response.status() === 400, 'Accepted quotations cannot be silently edited');
+  const duplicate = await api('duplicateQuote', { id: quoteId });
+  quoteIds.push(duplicate.result.resultId);
+  const duplicateQuote = duplicate.result.data.quotes.find((item) => item.id === duplicate.result.resultId);
+  check(duplicateQuote.status === 'draft' && duplicateQuote.shareToken !== quote.shareToken && duplicateQuote.totalCents === quote.totalCents, 'Duplicate has an independent token and preserves quotation amounts');
+  await page.reload({ waitUntil: 'networkidle' });
+  check((await workspace()).quotes.filter((item) => quoteIds.includes(item.id)).length === 2, 'Quotations survive a complete page reload');
+  const exportPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Exportar CSV', exact: true }).click();
+  const csv = await exportPromise;
+  await csv.saveAs('artifacts/test-export.csv');
+  check((await readFile('artifacts/test-export.csv', 'utf8')).includes(marker), 'CSV export includes persisted quotations');
+  await page.getByRole('button', { name: 'Configuración', exact: true }).click();
+  await page.getByLabel('Nombre del negocio', { exact: true }).fill('Estudio de prueba Cotiza');
+  const settingsSaved = mutation('saveSettings');
+  await page.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+  await settingsSaved;
+  check((await workspace()).settings.name === 'Estudio de prueba Cotiza', 'Business settings persist');
+  await api('saveSettings', originalSettings);
+  originalSettings = undefined;
+  await page.getByRole('button', { name: 'Reportes', exact: true }).click();
+  check(await page.locator('.client-report').isVisible(), 'Reports display client performance');
+  const missing = await context.request.get(`${base}/cotizacion/not-a-real-token`);
+  check(missing.status() === 404, 'Invalid public links return 404');
+  check(errors.length === 0, `No JavaScript runtime errors (${errors.length})`);
+} finally {
+  for (const id of quoteIds) if (id) await api('deleteQuote', { id });
+  if (customerId) await api('deleteCustomer', { id: customerId });
+  if (originalSettings) await api('saveSettings', originalSettings);
+  await page.goto(base, { waitUntil: 'networkidle' });
+  await page.screenshot({ path: 'artifacts/dashboard-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: 'artifacts/dashboard-mobile.png', fullPage: true });
+  check(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'Mobile layout has no horizontal overflow');
+  await page.getByRole('button', { name: 'Abrir menú', exact: true }).click();
+  check(await page.locator('.sidebar-open').isVisible(), 'Mobile navigation opens');
+  await page.getByRole('button', { name: 'Clientes', exact: true }).click();
+  check(await page.getByRole('heading', { name: 'Tus clientes', exact: true }).isVisible(), 'Mobile navigation switches views');
+  await browser.close();
+}
+console.log(`\nAll ${checks} checks passed. Test records were removed.`);

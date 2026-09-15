@@ -1,0 +1,100 @@
+ACTUALIZAR LA VERSIÓN QUE YA ESTÁ EN GITHUB Y VERCEL
+====================================================
+
+Esto NO es para localhost. Es para la dirección .vercel.app que ya tienes.
+Cuando termines, Vercel publicará sola la nueva versión.
+
+NECESITAS
+---------
+- La carpeta de Cotiza EN TU COMPUTADORA que ya conectaste a GitHub
+  (la misma que usaste la primera vez).
+- Git instalado.
+- El archivo ACTUALIZAR-GITHUB.bat (Windows) o actualizar.sh (Mac/Linux).
+
+Si no recuerdas esa carpeta, búscala: debe contener un directorio oculto
+llamado .git y el archivo package.json.
+
+
+PASO 1 — Descarga la versión corregida
+--------------------------------------
+Descarga el ZIP más reciente:
+
+  cotiza-local.zip   (el enlace está en la página /instalar)
+
+Descomprímelo. Verás una carpeta llamada cotiza.
+
+
+PASO 2 — Copia los archivos NUEVOS encima de tu proyecto
+--------------------------------------------------------
+1. Abre DOS ventanas del Explorador (o Finder):
+     A) la carpeta nueva descomprimida (cotiza)
+     B) TU carpeta original, la que ya está conectada a GitHub
+
+2. En la carpeta A, selecciona TODO excepto:
+     - .git          (si aparece; no lo copies)
+     - node_modules  (no lo copies)
+     - .env
+     - .env.local
+     - .env.web.local
+
+3. Cópialo y pégalo en la carpeta B eligiendo Reemplazar los archivos.
+
+NO borres la carpeta B. NO borres su carpeta .git.
+Esa carpeta .git es lo que la conecta con GitHub.
+
+
+PASO 3 — Sube los cambios a GitHub
+----------------------------------
+Windows, dentro de la carpeta B (tu proyecto original):
+
+  Haz doble clic en   ACTUALIZAR-GITHUB.bat
+
+macOS o Linux:
+
+  bash actualizar.sh
+
+Cuando pida la descripción, escribe:
+
+  Arreglo del panel en Vercel
+
+Espera a que diga LISTO.
+
+
+PASO 4 — Espera a Vercel
+------------------------
+1. Entra a https://vercel.com/dashboard
+2. Abre tu proyecto Cotiza
+3. En Deployments verás un despliegue nuevo en Building, luego Ready
+4. Tarda entre 1 y 3 minutos
+
+
+PASO 5 — Comprueba las variables en Vercel
+------------------------------------------
+Settings → Environment Variables. Debe existir:
+
+  DATABASE_URL     = la conexión CON pool de Neon (incluye -pooler)
+  ADMIN_SETUP_CODE = una frase secreta tuya (recomendado)
+
+Si acabas de agregarlas, vuelve a Deployments, abre el último
+despliegue y pulsa Redeploy.
+
+
+PASO 6 — Abre TU dirección de Vercel
+------------------------------------
+Usa la URL que termina en .vercel.app, NO localhost.
+
+La primera visita crea sola las tablas que falten en Neon.
+Debes ver "Crea tu acceso" o "Qué gusto verte", nunca la pantalla
+"Hagamos un nuevo intento".
+
+
+SI SIGUE SALIENDO EL ERROR
+--------------------------
+1. En Vercel → Deployments, abre el despliegue que falló y revisa Logs.
+2. Confirma que DATABASE_URL está en Production y que no es localhost.
+3. En Neon → Tables, tras visitar la web, deben aparecer:
+     customers, quotes, business_settings, admin_users, app_secrets
+4. Si DATABASE_URL estaba mal, corrígela y pulsa Redeploy.
+
+Esta corrección no se aplica sola a Vercel: hay que subirla a GitHub
+con el paso 3. La vista previa de esta plataforma no actualiza tu sitio.
