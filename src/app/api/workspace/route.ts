@@ -36,6 +36,7 @@ const businessSchema = z.object({
   name: z.string().trim().min(2).max(180), ownerName: z.string().trim().min(2).max(180), email: z.string().email("Escribe un correo válido").max(240), phone: z.string().max(40), address: z.string().max(500), currency: z.enum(["MXN", "USD", "EUR", "COP", "ARS", "CLP", "PEN"]), taxRate: z.number().min(0).max(100), terms: z.string().max(5000),
   quotePrefix: z.string().trim().min(1).max(12).regex(/^[A-Za-z0-9-]+$/, "El prefijo solo admite letras, números y guiones"),
   nextQuoteNumber: z.number().int().min(1).max(999999),
+  logoData: z.union([z.literal(""), z.string().max(900000, "El logo es demasiado grande. Usa una imagen de menos de 400 KB.").regex(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+=*$/, "El logo debe ser PNG o JPG")]),
 });
 
 export async function GET() {

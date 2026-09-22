@@ -28,10 +28,22 @@ export async function downloadQuotePdf(quote: Quote, customer: Customer, busines
     doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(clean(value), x, y, { align });
   };
   doc.setFillColor("#edf7f2"); doc.rect(0, 0, 210, 46, "F");
-  text(business.name, 20, 23, 21, true, "#208363");
+  let nameX = 20;
+  if (business.logoData) {
+    try {
+      const format = business.logoData.includes("image/jpeg") ? "JPEG" : "PNG";
+      const props = doc.getImageProperties(business.logoData);
+      const maxW = 36, maxH = 18;
+      const scale = Math.min(maxW / props.width, maxH / props.height);
+      const width = props.width * scale, height = props.height * scale;
+      doc.addImage(business.logoData, format, 20, 12, width, height);
+      nameX = 20 + width + 6;
+    } catch { /* If the logo cannot be embedded, the business name still prints. */ }
+  }
+  text(business.name, nameX, 23, 16, true, "#208363");
   text("COTIZACIÓN", 190, 19, 10, true, "#557567", "right");
   text(quote.number, 190, 30, 19, true, "#263d34", "right");
-  text(business.email, 20, 33, 9, false, "#648073");
+  text(business.email, nameX, 33, 9, false, "#648073");
   text("PREPARADA PARA", 20, 61, 8, true, "#829087");
   text(customer.name, 20, 70, 13, true);
   text(customer.contact, 20, 77, 10, false, "#65766d");
