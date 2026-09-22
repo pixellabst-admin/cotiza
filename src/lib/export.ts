@@ -121,16 +121,36 @@ export async function downloadQuotePdf(quote: Quote, customer: Customer, busines
     const lines: string[] = doc.splitTextToSize(clean(quote.notes), 170);
     for (const line of lines) { if (y > 255) { doc.addPage(); y = 25; } text(line, 20, y, 9, false, "#65766d"); y += 5; }
   }
-  if (networks.length) {
-    if (y > 220) { doc.addPage(); y = 28; }
-    y += 6;
-    doc.setFillColor("#eef6ea");
-    doc.roundedRect(20, y, 170, 10 + networks.length * 7, 2, 2, "F");
-    text("ENCUÉNTRANOS EN WEB Y REDES", 24, y + 7, 8, true, "#3d6b38");
-    y += 14;
-    for (const item of networks) {
-      text(`${item.label}:  ${item.href.replace(/^https?:\/\//, "")}`, 24, y, 10, false, "#1b5c32");
-      y += 7;
+  const pagesBeforeContact = doc.getNumberOfPages();
+  doc.addPage();
+  doc.setFillColor(237, 247, 242);
+  doc.rect(0, 0, 210, 40, "F");
+  text("CONTACTO Y REDES SOCIALES", 20, 24, 18, true, "#1f5c32");
+  const contactRows: [string, string][] = [
+    ["Correo", business.email || ""],
+    ["Telefono", business.phone || ""],
+    ["Web", business.website || ""],
+    ["Facebook", business.facebook || ""],
+    ["Instagram", business.instagram || ""],
+    ["TikTok", business.tiktok || ""],
+  ];
+  const filled = contactRows.filter(([, value]) => value.trim());
+  let cy = 55;
+  if (!["Web", "Facebook", "Instagram", "TikTok"].some((label) => contactRows.find((row) => row[0] === label)?.[1].trim())) {
+    text("No hay pagina web ni redes guardadas.", 20, cy, 12, true, "#8a3a2a");
+    cy += 10;
+    text("Ve a Configuracion, escribe Web / Facebook / Instagram / TikTok", 20, cy, 11, false, "#5c4036");
+    cy += 7;
+    text("y pulsa Guardar cambios. Luego vuelve a descargar este PDF.", 20, cy, 11, false, "#5c4036");
+  } else {
+    for (const [label, value] of filled) {
+      text(label.toUpperCase(), 20, cy, 8, true, "#5d7a55");
+      cy += 6;
+      const display = ["Web", "Facebook", "Instagram", "TikTok"].includes(label)
+        ? socialLinks({ website: label === "Web" ? value : "", facebook: label === "Facebook" ? value : "", instagram: label === "Instagram" ? value : "", tiktok: label === "TikTok" ? value : "" })[0]?.href.replace(/^https?:\/\//, "") || value
+        : value;
+      text(display, 20, cy, 12, false, "#1b3d28");
+      cy += 12;
     }
   }
   const pages = doc.getNumberOfPages();
@@ -138,7 +158,7 @@ export async function downloadQuotePdf(quote: Quote, customer: Customer, busines
     doc.setPage(index);
     doc.setDrawColor("#e8eeea");
     doc.line(20, 280, 190, 280);
-    text("Gracias por confiar en nuestro trabajo.", 20, 286, 8, false, "#829087");
+    text(index === pages && pages > pagesBeforeContact ? "Pagina de contacto y redes" : "Gracias por confiar en nuestro trabajo.", 20, 286, 8, false, "#829087");
     text(`${index} / ${pages}`, 190, 286, 8, false, "#829087", "right");
   }
   doc.save(`${quote.number}.pdf`);

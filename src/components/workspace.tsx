@@ -81,7 +81,11 @@ export function Workspace({ initialData, initialView = "dashboard", user }: { in
     const customer = data.customers.find((customer) => customer.id === quote.customerId);
     if (!customer) return;
     setPdfId(quote.id);
-    try { await downloadQuotePdf(quote, customer, data.settings); notify("Tu cotización en PDF está lista."); }
+    try {
+      await downloadQuotePdf(quote, customer, data.settings);
+      const hasSocial = Boolean(data.settings.website || data.settings.facebook || data.settings.instagram || data.settings.tiktok);
+      notify(hasSocial ? "PDF listo. Las redes están en la última página." : "PDF listo. No hay redes guardadas: ve a Configuración, llénalas y guarda.");
+    }
     catch { notify("No pudimos generar el PDF. Inténtalo de nuevo.", "error"); }
     finally { setPdfId(null); }
   }
