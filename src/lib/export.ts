@@ -85,12 +85,28 @@ export async function downloadQuotePdf(quote: Quote, customer: Customer, busines
     const lines: string[] = doc.splitTextToSize(clean(quote.notes), 170);
     for (const line of lines) { if (y > 270) { doc.addPage(); y = 25; } text(line, 20, y, 9, false, "#65766d"); y += 5; }
   }
+  const networks = socialLinks(business);
+  if (networks.length) {
+    y += 8;
+    if (y > 240) { doc.addPage(); y = 28; }
+    text("ENCUÉNTRANOS", 20, y, 8, true, "#758179"); y += 8;
+    for (const item of networks) {
+      if (y > 272) { doc.addPage(); y = 28; }
+      const label = `${item.label}:`;
+      const url = item.href.replace(/^https?:\/\//, "");
+      text(label, 20, y, 9, true, "#4f6f45");
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor("#2d7a4e");
+      const urlX = 48;
+      try { doc.textWithLink(clean(url), urlX, y, { url: item.href }); }
+      catch { doc.text(clean(url), urlX, y); }
+      y += 6;
+    }
+  }
   const pages = doc.getNumberOfPages();
   for (let index = 1; index <= pages; index++) {
     doc.setPage(index); doc.setDrawColor("#e8eeea"); doc.line(20, 280, 190, 280);
-    const footerSocial = socialLinks(business).map((item) => item.href.replace(/^https?:\/\//, "")).join("  ·  ");
-    text(footerSocial ? footerSocial.slice(0, 70) : "Gracias por confiar en nuestro trabajo.", 20, 286, 7.5, false, "#829087");
-    text(`Hecho con cotiza.  |  ${index} / ${pages}`, 190, 286, 8, false, "#829087", "right");
+    text("Gracias por confiar en nuestro trabajo.", 20, 286, 8, false, "#829087");
+    text(`${index} / ${pages}`, 190, 286, 8, false, "#829087", "right");
   }
   doc.save(`${quote.number}.pdf`);
 }
