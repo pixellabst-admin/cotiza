@@ -1,7 +1,7 @@
 import { pgTable, serial, varchar, text, integer, doublePrecision, jsonb, date, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export type QuoteItem = { description: string; quantity: number; unitPrice: number };
-export type QuoteStatus = "draft" | "sent" | "accepted" | "expired";
+export type QuoteStatus = "draft" | "sent" | "review" | "accepted" | "rejected" | "expired" | "archived";
 export type ShareChannel = "whatsapp" | "email";
 
 export const customers = pgTable("customers", {
@@ -21,7 +21,7 @@ export const quotes = pgTable("quotes", {
   customerId: integer("customer_id").notNull().references(() => customers.id),
   issueDate: date("issue_date").notNull(),
   validUntil: date("valid_until").notNull(),
-  status: text("status", { enum: ["draft", "sent", "accepted", "expired"] }).notNull().default("draft"),
+  status: text("status", { enum: ["draft", "sent", "review", "accepted", "rejected", "expired", "archived"] }).notNull().default("draft"),
   items: jsonb("items").$type<QuoteItem[]>().notNull(),
   subtotalCents: integer("subtotal_cents").notNull(),
   taxCents: integer("tax_cents").notNull(),
@@ -33,6 +33,7 @@ export const quotes = pgTable("quotes", {
   shareToken: uuid("share_token").notNull().defaultRandom().unique(),
   sharedVia: jsonb("shared_via").$type<ShareChannel[]>().notNull().default([]),
   acceptedBy: varchar("accepted_by", { length: 180 }),
+  decisionNote: text("decision_note").notNull().default(""),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -60,4 +61,6 @@ export const businessSettings = pgTable("business_settings", {
   currency: varchar("currency", { length: 3 }).notNull().default("MXN"),
   taxRate: doublePrecision("tax_rate").notNull().default(16),
   terms: text("terms").notNull().default(""),
+  quotePrefix: varchar("quote_prefix", { length: 12 }).notNull().default("COT"),
+  nextQuoteNumber: integer("next_quote_number").notNull().default(1),
 });

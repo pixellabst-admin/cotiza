@@ -3,8 +3,11 @@ import type { Quote, QuoteItem, QuoteStatus, Period } from "./types";
 export const statusMeta: Record<QuoteStatus, { label: string; color: string }> = {
   draft: { label: "Borrador", color: "#a6adb4" },
   sent: { label: "Enviada", color: "#83b9e5" },
-  accepted: { label: "Aceptada", color: "#25a683" },
+  review: { label: "En revisión", color: "#8fb56e" },
+  accepted: { label: "Aprobada", color: "#25a683" },
+  rejected: { label: "Rechazada", color: "#c07a6e" },
   expired: { label: "Vencida", color: "#edb678" },
+  archived: { label: "Archivada", color: "#9aa196" },
 };
 
 export function money(cents: number, currency = "MXN", decimals = true) {
@@ -50,6 +53,12 @@ export function chartData(quotes: Quote[], months = 6) {
     };
   });
 }
+export function formatQuoteNumber(prefix: string, value: number) {
+  const safe = prefix.replace(/[^A-Za-z0-9-]/g, "").slice(0, 12) || "COT";
+  return `${safe}-${String(Math.max(1, value)).padStart(4, "0")}`;
+}
 export function effectiveStatus(quote: Quote): QuoteStatus {
-  return quote.status !== "accepted" && quote.status !== "draft" && quote.validUntil < dateInput() ? "expired" : quote.status;
+  if (quote.status === "accepted" || quote.status === "rejected" || quote.status === "draft" || quote.status === "archived") return quote.status;
+  if (quote.status === "expired" || quote.validUntil < dateInput()) return "archived";
+  return quote.status;
 }

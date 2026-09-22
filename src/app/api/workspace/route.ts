@@ -4,6 +4,7 @@ import { businessSettings, customers, quotes } from "@/db/schema";
 import { ensureSeed, getAppData } from "@/lib/data";
 import { getSessionUser } from "@/lib/auth";
 import { addDays, calculateTotals, dateInput } from "@/lib/utils";
+import { allocateQuoteNumber } from "@/lib/quote-number";
 import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 const unauthorized = () => NextResponse.json({ error: "Tu sesión terminó. Vuelve a iniciar sesión." }, { status: 401 });
 const idSchema = z.number().int().positive();
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha no es válida").refine((value) => !isNaN(Date.parse(value)) && new Date(value + "T12:00:00Z").toISOString().slice(0, 10) === value, "La fecha no es válida");
+const quoteStatusSchema = z.enum(["draft", "sent", "review", "accepted", "rejected", "expired", "archived"]);
 const quoteSchema = z.object({
   id: idSchema.optional(),
   title: z.string().trim().min(2, "Escribe un título para la cotización").max(240),
@@ -22,7 +24,7 @@ const quoteSchema = z.object({
   taxRate: z.number().min(0).max(100),
   discountPercent: z.number().min(0).max(100),
   notes: z.string().max(5000),
-  status: z.enum(["draft", "sent", "accepted", "expired"]).default("draft"),
+  status: quoteStatusSchema.default("draft"),
 }).refine((value) => value.validUntil >= value.issueDate, { message: "La vigencia no puede ser anterior a la fecha de emisión", path: ["validUntil"] });
 const customerSchema = z.object({
   id: idSchema.optional(), name: z.string().trim().min(2, "Escribe el nombre del cliente").max(180), contact: z.string().trim().max(180),
@@ -32,6 +34,8 @@ const customerSchema = z.object({
 });
 const businessSchema = z.object({
   name: z.string().trim().min(2).max(180), ownerName: z.string().trim().min(2).max(180), email: z.string().email("Escribe un correo válido").max(240), phone: z.string().max(40), address: z.string().max(500), currency: z.enum(["MXN", "USD", "EUR", "COP", "ARS", "CLP", "PEN"]), taxRate: z.number().min(0).max(100), terms: z.string().max(5000),
+  quotePrefix: z.string().trim().min(1).max(12).regex(/^[A-Za-z0-9-]+$/, "El prefijo solo admite letras, números y guiones"),
+  nextQuoteNumber: z.number().int().min(1).max(999999),
 });
 
 export async function GET() {
@@ -66,8 +70,8 @@ export async function POST(request: NextRequest) {
         } else {
           const [settings] = await db.select().from(businessSettings).where(eq(businessSettings.id, 1));
           await db.transaction(async (tx) => {
-            const [created] = await tx.insert(quotes).values({ ...values, ...totals, status: "draft", currency: settings.currency, number: `NEW-${randomUUID()}` }).returning();
-            await tx.update(quotes).set({ number: `COT-${String(created.id).padStart(4, "0")}` }).where(eq(quotes.id, created.id));
+            const number = await allocateQuoteNumber(tx, settings.quotePrefix, settings.nextQuoteNumber);
+            const [created] = await tx.insert(quotes).values({ ...values, ...totals, status: "draft", currency: settings.currency, number }).returning();
             resultId = created.id;
           });
         }
@@ -78,19 +82,25 @@ export async function POST(request: NextRequest) {
         const [existing] = await db.select().from(quotes).where(eq(quotes.id, id));
         if (!existing) throw new Error("Cotización no encontrada");
         const { id: _id, number: _number, shareToken: _token, createdAt: _created, acceptedBy: _accepted, ...rest } = existing;
+        const [settings] = await db.select().from(businessSettings).where(eq(businessSettings.id, 1));
         await db.transaction(async (tx) => {
-          const [created] = await tx.insert(quotes).values({ ...rest, title: `${existing.title.slice(0, 230)} (copia)`, number: `NEW-${randomUUID()}`, status: "draft", sharedVia: [], issueDate: dateInput(), validUntil: dateInput(addDays(new Date(), 15)) }).returning();
-          await tx.update(quotes).set({ number: `COT-${String(created.id).padStart(4, "0")}` }).where(eq(quotes.id, created.id));
+          const number = await allocateQuoteNumber(tx, settings.quotePrefix, settings.nextQuoteNumber);
+          const [created] = await tx.insert(quotes).values({ ...rest, title: `${existing.title.slice(0, 230)} (copia)`, number, status: "draft", sharedVia: [], acceptedBy: null, decisionNote: "", issueDate: dateInput(), validUntil: dateInput(addDays(new Date(), 15)) }).returning();
           resultId = created.id;
         });
         break;
       }
       case "setStatus": {
-        const { id, status } = z.object({ id: idSchema, status: z.enum(["draft", "sent", "accepted", "expired"]) }).parse(body);
+        const { id, status } = z.object({ id: idSchema, status: quoteStatusSchema }).parse(body);
         const [existing] = await db.select().from(quotes).where(eq(quotes.id, id));
         if (!existing) throw new Error("Cotización no encontrada");
-        if (status === "sent" && existing.validUntil < dateInput()) throw new Error("Actualiza la vigencia antes de marcar esta cotización como enviada");
-        await db.update(quotes).set({ status, acceptedBy: status === "accepted" ? "Confirmado por el negocio" : null }).where(eq(quotes.id, id));
+        const today = dateInput();
+        const patch: Partial<typeof quotes.$inferInsert> = { status };
+        if ((status === "sent" || status === "review") && existing.validUntil < today) patch.validUntil = dateInput(addDays(new Date(), 15));
+        if (status === "review") patch.validUntil = dateInput(addDays(new Date(), 15));
+        if (status === "accepted") patch.acceptedBy = existing.acceptedBy || "Confirmado por el negocio";
+        if (status === "rejected") patch.acceptedBy = existing.acceptedBy || "Rechazada por el negocio";
+        await db.update(quotes).set(patch).where(eq(quotes.id, id));
         resultId = id;
         break;
       }
@@ -98,10 +108,11 @@ export async function POST(request: NextRequest) {
         const { id, channel } = z.object({ id: idSchema, channel: z.enum(["whatsapp", "email"]) }).parse(body);
         const [existing] = await db.select().from(quotes).where(eq(quotes.id, id));
         if (!existing) throw new Error("Cotización no encontrada");
-        const markSent = existing.status === "draft" && existing.validUntil >= dateInput();
+        const today = dateInput();
+        const becomesSent = existing.status === "draft" || existing.status === "review";
         await db.update(quotes).set({
           sharedVia: sql`case when ${quotes.sharedVia} @> ${JSON.stringify([channel])}::jsonb then ${quotes.sharedVia} else ${quotes.sharedVia} || ${JSON.stringify([channel])}::jsonb end`,
-          ...(markSent ? { status: "sent" as const } : {}),
+          ...(becomesSent ? { status: "sent" as const, validUntil: existing.validUntil < today ? dateInput(addDays(new Date(), 15)) : existing.validUntil } : {}),
         }).where(eq(quotes.id, id));
         resultId = id;
         break;
@@ -133,6 +144,10 @@ export async function POST(request: NextRequest) {
       case "saveSettings": {
         const values = businessSchema.parse(body);
         await db.update(businessSettings).set(values).where(eq(businessSettings.id, 1));
+        break;
+      }
+      case "resetQuoteNumbers": {
+        await db.update(businessSettings).set({ nextQuoteNumber: 1 }).where(eq(businessSettings.id, 1));
         break;
       }
       default: return NextResponse.json({ error: "Operación no reconocida" }, { status: 400 });

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getPublicQuote } from "@/lib/data";
-import { PublicQuote } from "@/components/quote-document";
+import { PublicQuote } from "@/components/public-quote";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";

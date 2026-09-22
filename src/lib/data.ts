@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { businessSettings, customers, quotes } from "@/db/schema";
 import type { QuoteItem, QuoteStatus, ShareChannel } from "@/db/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { addDays, calculateTotals, dateInput, effectiveStatus } from "./utils";
 import { ensureSchema } from "./ensure-schema";
 import type { AppData, Quote } from "./types";
@@ -66,11 +66,13 @@ async function seedWorkspace() {
       rows.push({ number: `COT-${String(number++).padStart(4, "0")}`, title: titles[index], customerId: clients[index % clients.length].id, issueDate: dateInput(issue), validUntil: dateInput(addDays(now, index === 23 ? -2 : 15 - Math.min(index, 13))), status: statuses[index], items, subtotalCents: totals.subtotalCents, taxCents: totals.taxCents, totalCents: totals.totalCents, taxRate: 16, notes: settings.terms, sharedVia: channels, createdAt: new Date(now.getTime() - index * 3600000) });
     }
     await tx.insert(quotes).values(rows);
+    await tx.update(businessSettings).set({ quotePrefix: "COT", nextQuoteNumber: number }).where(eq(businessSettings.id, 1));
   });
 }
 
 export async function getAppData(): Promise<AppData> {
   await ensureSeed();
+  await db.update(quotes).set({ status: "archived" }).where(and(inArray(quotes.status, ["sent", "review", "expired"]), lt(quotes.validUntil, dateInput())));
   const [allCustomers, allQuotes, [settings]] = await Promise.all([
     db.select().from(customers).orderBy(desc(customers.createdAt)),
     db.select().from(quotes).orderBy(desc(quotes.issueDate), desc(quotes.createdAt)),
