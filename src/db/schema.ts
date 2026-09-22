@@ -64,4 +64,8 @@ export const businessSettings = pgTable("business_settings", {
   quotePrefix: varchar("quote_prefix", { length: 12 }).notNull().default("COT"),
   nextQuoteNumber: integer("next_quote_number").notNull().default(1),
   logoData: text("logo_data").notNull().default(""),
+  website: varchar("website", { length: 240 }).notNull().default(""),
+  facebook: varchar("facebook", { length: 240 }).notNull().default(""),
+  instagram: varchar("instagram", { length: 240 }).notNull().default(""),
+  tiktok: varchar("tiktok", { length: 240 }).notNull().default(""),
 });

@@ -53,6 +53,24 @@ export function chartData(quotes: Quote[], months = 6) {
     };
   });
 }
+export function socialHref(value: string, kind: "website" | "facebook" | "instagram" | "tiktok") {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const handle = trimmed.replace(/^@/, "").replace(/^\/+/, "");
+  if (kind === "website") return `https://${handle}`;
+  if (kind === "facebook") return handle.includes("facebook.com") ? `https://${handle}` : `https://www.facebook.com/${handle}`;
+  if (kind === "instagram") return handle.includes("instagram.com") ? `https://${handle}` : `https://www.instagram.com/${handle}`;
+  return handle.includes("tiktok.com") ? `https://${handle}` : `https://www.tiktok.com/@${handle}`;
+}
+export function socialLinks(business: { website?: string; facebook?: string; instagram?: string; tiktok?: string }) {
+  return [
+    business.website ? { label: "Web", href: socialHref(business.website, "website") } : null,
+    business.facebook ? { label: "Facebook", href: socialHref(business.facebook, "facebook") } : null,
+    business.instagram ? { label: "Instagram", href: socialHref(business.instagram, "instagram") } : null,
+    business.tiktok ? { label: "TikTok", href: socialHref(business.tiktok, "tiktok") } : null,
+  ].filter((item): item is { label: string; href: string } => Boolean(item));
+}
 export function formatQuoteNumber(prefix: string, value: number) {
   const safe = prefix.replace(/[^A-Za-z0-9-]/g, "").slice(0, 12) || "COT";
   return `${safe}-${String(Math.max(1, value)).padStart(4, "0")}`;

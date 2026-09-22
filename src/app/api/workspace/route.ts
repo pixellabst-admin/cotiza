@@ -37,6 +37,10 @@ const businessSchema = z.object({
   quotePrefix: z.string().trim().min(1).max(12).regex(/^[A-Za-z0-9-]+$/, "El prefijo solo admite letras, números y guiones"),
   nextQuoteNumber: z.number().int().min(1).max(999999),
   logoData: z.union([z.literal(""), z.string().max(900000, "El logo es demasiado grande. Usa una imagen de menos de 400 KB.").regex(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+=*$/, "El logo debe ser PNG o JPG")]),
+  website: z.string().trim().max(240),
+  facebook: z.string().trim().max(240),
+  instagram: z.string().trim().max(240),
+  tiktok: z.string().trim().max(240),
 });
 
 export async function GET() {

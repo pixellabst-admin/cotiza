@@ -1,5 +1,5 @@
 import type { Business, Customer, Quote } from "./types";
-import { calculateTotals, formatDate, money, statusMeta } from "./utils";
+import { calculateTotals, formatDate, money, socialLinks, statusMeta } from "./utils";
 
 export function downloadCsv(quotes: Quote[], customers: Customer[]) {
   const escape = (value: unknown) => {
@@ -44,6 +44,8 @@ export async function downloadQuotePdf(quote: Quote, customer: Customer, busines
   text("COTIZACIÓN", 190, 19, 10, true, "#557567", "right");
   text(quote.number, 190, 30, 19, true, "#263d34", "right");
   text(business.email, nameX, 33, 9, false, "#648073");
+  const social = socialLinks(business).map((item) => item.label).join("  ·  ");
+  if (social) text(social, nameX, 40, 8, false, "#648073");
   text("PREPARADA PARA", 20, 61, 8, true, "#829087");
   text(customer.name, 20, 70, 13, true);
   text(customer.contact, 20, 77, 10, false, "#65766d");
@@ -86,7 +88,8 @@ export async function downloadQuotePdf(quote: Quote, customer: Customer, busines
   const pages = doc.getNumberOfPages();
   for (let index = 1; index <= pages; index++) {
     doc.setPage(index); doc.setDrawColor("#e8eeea"); doc.line(20, 280, 190, 280);
-    text("Gracias por confiar en nuestro trabajo.", 20, 286, 8, false, "#829087");
+    const footerSocial = socialLinks(business).map((item) => item.href.replace(/^https?:\/\//, "")).join("  ·  ");
+    text(footerSocial ? footerSocial.slice(0, 70) : "Gracias por confiar en nuestro trabajo.", 20, 286, 7.5, false, "#829087");
     text(`Hecho con cotiza.  |  ${index} / ${pages}`, 190, 286, 8, false, "#829087", "right");
   }
   doc.save(`${quote.number}.pdf`);
