@@ -30,10 +30,15 @@ export async function downloadQuotePdf(quote: Quote, customer: Customer, busines
     doc.setTextColor(color);
     doc.text(clean(value), x, y, { align });
   };
-  const networks = socialLinks(business);
-  const headerHeight = 38 + (business.phone ? 5 : 0) + networks.length * 5.2;
-  doc.setFillColor("#edf7f2");
-  doc.rect(0, 0, 210, Math.max(46, headerHeight + 8), "F");
+  const networks = socialLinks({
+    website: business.website || "",
+    facebook: business.facebook || "",
+    instagram: business.instagram || "",
+    tiktok: business.tiktok || "",
+  });
+  const headerHeight = 42 + (business.phone ? 5 : 0) + Math.max(networks.length, 0) * 6;
+  doc.setFillColor(237, 247, 242);
+  doc.rect(0, 0, 210, Math.max(48, headerHeight + 10), "F");
   let nameX = 20;
   if (business.logoData) {
     try {

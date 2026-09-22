@@ -36,11 +36,11 @@ const businessSchema = z.object({
   name: z.string().trim().min(2).max(180), ownerName: z.string().trim().min(2).max(180), email: z.string().email("Escribe un correo válido").max(240), phone: z.string().max(40), address: z.string().max(500), currency: z.enum(["MXN", "USD", "EUR", "COP", "ARS", "CLP", "PEN"]), taxRate: z.number().min(0).max(100), terms: z.string().max(5000),
   quotePrefix: z.string().trim().min(1).max(12).regex(/^[A-Za-z0-9-]+$/, "El prefijo solo admite letras, números y guiones"),
   nextQuoteNumber: z.number().int().min(1).max(999999),
-  logoData: z.union([z.literal(""), z.string().max(900000, "El logo es demasiado grande. Usa una imagen de menos de 400 KB.").regex(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+=*$/, "El logo debe ser PNG o JPG")]),
-  website: z.string().trim().max(240),
-  facebook: z.string().trim().max(240),
-  instagram: z.string().trim().max(240),
-  tiktok: z.string().trim().max(240),
+  logoData: z.string().max(900000, "El logo es demasiado grande.").refine((value) => value === "" || value.startsWith("data:image/"), "El logo debe ser una imagen").optional().default(""),
+  website: z.string().trim().max(240).optional().default(""),
+  facebook: z.string().trim().max(240).optional().default(""),
+  instagram: z.string().trim().max(240).optional().default(""),
+  tiktok: z.string().trim().max(240).optional().default(""),
 });
 
 export async function GET() {
