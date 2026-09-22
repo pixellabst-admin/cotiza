@@ -96,7 +96,13 @@ export async function POST(request: NextRequest) {
       }
       case "recordShare": {
         const { id, channel } = z.object({ id: idSchema, channel: z.enum(["whatsapp", "email"]) }).parse(body);
-        await db.update(quotes).set({ sharedVia: sql`case when ${quotes.sharedVia} @> ${JSON.stringify([channel])}::jsonb then ${quotes.sharedVia} else ${quotes.sharedVia} || ${JSON.stringify([channel])}::jsonb end` }).where(eq(quotes.id, id));
+        const [existing] = await db.select().from(quotes).where(eq(quotes.id, id));
+        if (!existing) throw new Error("Cotización no encontrada");
+        const markSent = existing.status === "draft" && existing.validUntil >= dateInput();
+        await db.update(quotes).set({
+          sharedVia: sql`case when ${quotes.sharedVia} @> ${JSON.stringify([channel])}::jsonb then ${quotes.sharedVia} else ${quotes.sharedVia} || ${JSON.stringify([channel])}::jsonb end`,
+          ...(markSent ? { status: "sent" as const } : {}),
+        }).where(eq(quotes.id, id));
         resultId = id;
         break;
       }
