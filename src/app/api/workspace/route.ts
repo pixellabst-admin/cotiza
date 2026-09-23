@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         const [existing] = await db.select().from(quotes).where(eq(quotes.id, id));
         if (!existing) throw new Error("Cotización no encontrada");
         const today = dateInput();
-        const becomesSent = existing.status === "draft" || existing.status === "review";
+        const becomesSent = existing.status === "draft" || existing.status === "review" || existing.status === "changes";
         await db.update(quotes).set({
           sharedVia: sql`case when ${quotes.sharedVia} @> ${JSON.stringify([channel])}::jsonb then ${quotes.sharedVia} else ${quotes.sharedVia} || ${JSON.stringify([channel])}::jsonb end`,
           ...(becomesSent ? { status: "sent" as const, validUntil: existing.validUntil < today ? dateInput(addDays(new Date(), 15)) : existing.validUntil } : {}),

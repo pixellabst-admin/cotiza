@@ -21,15 +21,33 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
     const current = data.quote.status;
     if (current === "accepted" && input.data.action === "accept") return NextResponse.json({ ok: true, alreadyAccepted: true, status: "accepted" });
     if (current === "rejected" && input.data.action === "reject") return NextResponse.json({ ok: true, status: "rejected" });
+    if (current === "changes" && input.data.action === "changes") return NextResponse.json({ ok: true, status: "changes" });
     if (current === "archived" || current === "expired" || current === "draft") {
       return NextResponse.json({ error: "Esta cotización ya no admite una decisión. Contacta al emisor." }, { status: 400 });
     }
     if (data.quote.validUntil < today && input.data.action !== "review") {
       return NextResponse.json({ error: "El plazo de esta cotización venció." }, { status: 400 });
     }
-    const open = ["sent", "review"] as const;
-    if (!open.includes(current as "sent" | "review")) {
+    const open = ["sent", "review", "changes"] as const;
+    if (!open.includes(current as typeof open[number])) {
       return NextResponse.json({ error: "Esta cotización no está disponible para una decisión." }, { status: 400 });
+    }
+
+    if (input.data.action === "changes") {
+      const noteText = input.data.note.trim();
+      if (noteText.length < 8) {
+        return NextResponse.json({ error: "Cuéntanos qué te gustaría cambiar, con un poco más de detalle." }, { status: 400 });
+      }
+      const stamp = `${input.data.name}: ${noteText}`;
+      const previous = data.quote.decisionNote?.trim();
+      const [updated] = await db.update(quotes).set({
+        status: "changes",
+        validUntil: dateInput(addDays(new Date(), 15)),
+        acceptedBy: input.data.name,
+        decisionNote: previous ? `${previous}\n\n${stamp}` : stamp,
+      }).where(and(eq(quotes.shareToken, token), inArray(quotes.status, ["sent", "review", "changes"]))).returning();
+      if (!updated) return NextResponse.json({ error: "La cotización cambió. Actualiza la página." }, { status: 409 });
+      return NextResponse.json({ ok: true, status: "changes", validUntil: updated.validUntil });
     }
 
     if (input.data.action === "review") {
