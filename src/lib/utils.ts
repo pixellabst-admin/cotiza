@@ -4,7 +4,7 @@ export const statusMeta: Record<QuoteStatus, { label: string; color: string }> =
   draft: { label: "Borrador", color: "#a6adb4" },
   sent: { label: "Enviada", color: "#83b9e5" },
   review: { label: "En revisión", color: "#8fb56e" },
-  changes: { label: "Pide cambios", color: "#d4a017" },
+  changes: { label: "Comentada", color: "#d4a017" },
   accepted: { label: "Aprobada", color: "#25a683" },
   rejected: { label: "Rechazada", color: "#c07a6e" },
   expired: { label: "Vencida", color: "#edb678" },

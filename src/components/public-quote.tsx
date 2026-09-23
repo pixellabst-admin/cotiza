@@ -16,7 +16,7 @@ const copy: Record<QuoteStatus, { title: string; text: (quote: Quote) => string 
   expired: { title: "Esta oferta quedó archivada.", text: () => "El plazo venció. Contacta al emisor para una nueva vigencia." },
   draft: { title: "Una propuesta en preparación", text: () => "El emisor está finalizando los detalles." },
   sent: { title: "¿Listo para decidir?", text: (quote) => `Puedes aprobar, rechazar, pedir cambios o tomarte 15 días. Vigente hasta el ${formatDate(quote.validUntil, true)}.` },
-  changes: { title: "Tus comentarios ya llegaron.", text: () => "El equipo los verá y te enviará una versión corregida." },
+  changes: { title: "Tu cotización quedó comentada.", text: () => "El equipo revisará tus comentarios y te enviará una versión corregida." },
 };
 
 export function PublicQuote({ quote: initialQuote, customer, settings }: { quote: Quote; customer: Customer; settings: Business }) {
