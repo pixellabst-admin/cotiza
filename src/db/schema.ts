@@ -1,7 +1,7 @@
 import { pgTable, serial, varchar, text, integer, doublePrecision, jsonb, date, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export type QuoteItem = { description: string; quantity: number; unitPrice: number; photo?: string };
-export type QuoteStatus = "draft" | "sent" | "review" | "accepted" | "rejected" | "expired" | "archived";
+export type QuoteStatus = "draft" | "sent" | "review" | "changes" | "accepted" | "rejected" | "expired" | "archived";
 export type ShareChannel = "whatsapp" | "email";
 export type SaleItem = { description: string; quantity: number; unitPrice: number };
 export type SaleStatus = "paid" | "pending" | "cancelled";
@@ -24,7 +24,7 @@ export const quotes = pgTable("quotes", {
   customerId: integer("customer_id").notNull().references(() => customers.id),
   issueDate: date("issue_date").notNull(),
   validUntil: date("valid_until").notNull(),
-  status: text("status", { enum: ["draft", "sent", "review", "accepted", "rejected", "expired", "archived"] }).notNull().default("draft"),
+  status: text("status", { enum: ["draft", "sent", "review", "changes", "accepted", "rejected", "expired", "archived"] }).notNull().default("draft"),
   items: jsonb("items").$type<QuoteItem[]>().notNull(),
   subtotalCents: integer("subtotal_cents").notNull(),
   taxCents: integer("tax_cents").notNull(),

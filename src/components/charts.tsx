@@ -29,8 +29,8 @@ export function ActivityChart({ quotes, currency }: { quotes: Quote[]; currency:
 }
 
 export function StatusChart({ quotes, onFilter }: { quotes: Quote[]; onFilter: (status: QuoteStatus) => void }) {
-  const statuses: QuoteStatus[] = ["accepted", "sent", "review", "draft", "rejected", "archived"];
-  const labels: Partial<Record<QuoteStatus, string>> = { accepted: "Aprobadas", sent: "Enviadas", review: "En revisión", draft: "Borradores", rejected: "Rechazadas", archived: "Archivadas", expired: "Vencidas" };
+  const statuses: QuoteStatus[] = ["accepted", "sent", "changes", "review", "draft", "rejected", "archived"];
+  const labels: Partial<Record<QuoteStatus, string>> = { accepted: "Aprobadas", sent: "Enviadas", changes: "Pide cambios", review: "En revisión", draft: "Borradores", rejected: "Rechazadas", archived: "Archivadas", expired: "Vencidas" };
   const circumference = 2 * Math.PI * 55;
   let offset = 0;
   const accepted = quotes.filter((quote) => quote.status === "accepted").length;

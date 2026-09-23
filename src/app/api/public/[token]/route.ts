@@ -10,9 +10,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
   try {
     const { token } = await context.params;
     const input = z.object({
-      action: z.enum(["accept", "reject", "review"]).default("accept"),
+      action: z.enum(["accept", "reject", "review", "changes"]).default("accept"),
       name: z.string().trim().min(2, "Escribe tu nombre completo").max(180),
-      note: z.string().trim().max(500).optional().default(""),
+      note: z.string().trim().max(1500).optional().default(""),
     }).safeParse(await request.json());
     if (!input.success) return NextResponse.json({ error: input.error.issues[0]?.message || "Escribe tu nombre completo para confirmar" }, { status: 400 });
     const data = await getPublicQuote(token);
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
         validUntil: dateInput(addDays(new Date(), 15)),
         acceptedBy: input.data.name,
         decisionNote: input.data.note || "El cliente pidió 15 días de revisión.",
-      }).where(and(eq(quotes.shareToken, token), inArray(quotes.status, ["sent", "review"]))).returning();
+      }).where(and(eq(quotes.shareToken, token), inArray(quotes.status, ["sent", "review", "changes"]))).returning();
       if (!updated) return NextResponse.json({ error: "La cotización cambió. Actualiza la página." }, { status: 409 });
       return NextResponse.json({ ok: true, status: "review", validUntil: updated.validUntil });
     }
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
       status: nextStatus,
       acceptedBy: input.data.name,
       decisionNote: input.data.note || "",
-    }).where(and(eq(quotes.shareToken, token), inArray(quotes.status, ["sent", "review"]), gte(quotes.validUntil, today))).returning();
+    }).where(and(eq(quotes.shareToken, token), inArray(quotes.status, ["sent", "review", "changes"]), gte(quotes.validUntil, today))).returning();
     if (!updated) return NextResponse.json({ error: "La cotización cambió. Actualiza la página." }, { status: 409 });
     return NextResponse.json({ ok: true, status: nextStatus });
   } catch (error) {

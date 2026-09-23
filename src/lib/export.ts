@@ -1,5 +1,5 @@
 import type { Business, Customer, Quote } from "./types";
-import { calculateTotals, formatDate, money, socialLinks, statusMeta } from "./utils";
+import { calculateTotals, dateInput, formatDate, money, socialLinks, statusMeta } from "./utils";
 
 export function downloadCsv(quotes: Quote[], customers: Customer[]) {
   const escape = (value: unknown) => {
@@ -18,6 +18,63 @@ export function downloadCsv(quotes: Quote[], customers: Customer[]) {
   link.download = `cotizaciones-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function downloadChangesPdf(changes: { quote: Quote; customer: Customer }[], business: Business, periodLabel: string) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF();
+  const clean = (value: string) => value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
+  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34") => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(clean(value), x, y); };
+  doc.setFillColor(237, 247, 242); doc.rect(0, 0, 210, 40, "F");
+  text(business.name, 20, 18, 17, true, "#208363");
+  text("REPORTE DE CAMBIOS POR CLIENTE", 190, 16, 11, true, "#557567");
+  text(periodLabel, 190, 27, 9, false, "#65766d");
+  let y = 54;
+  if (!changes.length) {
+    text("No hay cotizaciones con cambios solicitados en este período.", 20, y, 11);
+  }
+  for (const { quote, customer } of changes) {
+    if (y > 250) { doc.addPage(); y = 24; }
+    doc.setFillColor(255, 248, 232); doc.roundedRect(20, y - 5, 170, 9, 2, 2, "F");
+    text(`${quote.number} · ${customer.name}`, 24, y, 11, true, "#6a5420");
+    text(money(quote.totalCents, quote.currency), 186, y, 10, true, "#6a5420");
+    y += 8;
+    text(`Vence: ${formatDate(quote.validUntil, true)}`, 24, y, 9, false, "#8a7a4a");
+    y += 7;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor("#4a4436");
+    const lines: string[] = doc.splitTextToSize(clean(quote.decisionNote || "Sin comentario escrito."), 160);
+    for (const line of lines) { if (y > 278) { doc.addPage(); y = 24; } doc.text(line, 24, y); y += 5; }
+    y += 8;
+  }
+  const pages = doc.getNumberOfPages();
+  for (let index = 1; index <= pages; index++) {
+    doc.setPage(index);
+    doc.setDrawColor("#e8eeea"); doc.line(20, 284, 190, 284);
+    text(`${changes.length} cambios solicitados`, 20, 290, 8, false, "#829087");
+    text(`${index} / ${pages}`, 190, 290, 8, false, "#829087");
+  }
+  doc.save(`reporte-cambios-${dateInput()}.pdf`);
+}
+
+export async function downloadChangesExcel(changes: { quote: Quote; customer: Customer }[], periodLabel: string) {
+  const XLSX = await import("xlsx");
+  const rows = changes.map(({ quote, customer }) => ({
+    "Número": quote.number,
+    "Cliente": customer.name,
+    "Contacto": customer.contact,
+    "Correo": customer.email,
+    "Proyecto": quote.title,
+    "Comentarios del cliente": quote.decisionNote,
+    "Vigencia": quote.validUntil,
+    "Total": quote.totalCents / 100,
+    "Moneda": quote.currency,
+    "Estado": statusMeta[quote.status].label,
+  }));
+  const worksheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Número: "Sin cambios solicitados" }]);
+  worksheet["!cols"] = [{ wch: 12 }, { wch: 26 }, { wch: 22 }, { wch: 26 }, { wch: 34 }, { wch: 60 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 14 }];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Cambios por cliente");
+  XLSX.writeFile(workbook, `reporte-cambios-${periodLabel.replace(/\s+/g, "-").toLowerCase()}.xlsx`);
 }
 
 export async function downloadQuotePdf(quote: Quote, customer: Customer, business: Business) {

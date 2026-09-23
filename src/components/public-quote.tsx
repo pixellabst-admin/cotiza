@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Check, CheckCircle2, Download, LockKeyhole, LoaderCircle, ArrowUpRight, XCircle, Clock3, Archive } from "lucide-react";
+import { Check, CheckCircle2, Download, LockKeyhole, LoaderCircle, ArrowUpRight, XCircle, Clock3, Archive, MessageSquare } from "lucide-react";
 import type { Business, Customer, Quote, QuoteStatus } from "@/lib/types";
 import { formatDate, money } from "@/lib/utils";
 import { downloadQuotePdf } from "@/lib/export";
@@ -15,18 +15,19 @@ const copy: Record<QuoteStatus, { title: string; text: (quote: Quote) => string 
   archived: { title: "Esta oferta quedó archivada.", text: () => "El plazo de 15 días venció sin una decisión. Contacta al emisor si aún te interesa." },
   expired: { title: "Esta oferta quedó archivada.", text: () => "El plazo venció. Contacta al emisor para una nueva vigencia." },
   draft: { title: "Una propuesta en preparación", text: () => "El emisor está finalizando los detalles." },
-  sent: { title: "¿Listo para decidir?", text: (quote) => `Puedes aprobar, rechazar o pedir 15 días de revisión. Vigente hasta el ${formatDate(quote.validUntil, true)}.` },
+  sent: { title: "¿Listo para decidir?", text: (quote) => `Puedes aprobar, rechazar, pedir cambios o tomarte 15 días. Vigente hasta el ${formatDate(quote.validUntil, true)}.` },
+  changes: { title: "Tus comentarios ya llegaron.", text: () => "El equipo los verá y te enviará una versión corregida." },
 };
 
 export function PublicQuote({ quote: initialQuote, customer, settings }: { quote: Quote; customer: Customer; settings: Business }) {
   const [quote, setQuote] = useState(initialQuote);
-  const [dialog, setDialog] = useState<"accept" | "reject" | "review" | null>(null);
+  const [dialog, setDialog] = useState<"accept" | "reject" | "review" | "changes" | null>(null);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [error, setError] = useState("");
-  const open = quote.status === "sent" || quote.status === "review";
+  const open = quote.status === "sent" || quote.status === "review" || quote.status === "changes";
   const message = copy[quote.status];
 
   async function decide(event: FormEvent) {
@@ -37,7 +38,7 @@ export function PublicQuote({ quote: initialQuote, customer, settings }: { quote
       const response = await fetch(`/api/public/${quote.shareToken}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: dialog, name, note }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
-      setQuote({ ...quote, status: result.status || (dialog === "accept" ? "accepted" : dialog === "reject" ? "rejected" : "review"), acceptedBy: name, validUntil: result.validUntil || (dialog === "review" ? quote.validUntil : quote.validUntil) });
+      setQuote({ ...quote, status: result.status || (dialog === "accept" ? "accepted" : dialog === "reject" ? "rejected" : dialog === "changes" ? "changes" : "review"), acceptedBy: name, decisionNote: dialog === "changes" ? `${name}: ${note}` : quote.decisionNote, validUntil: result.validUntil || quote.validUntil });
       setDialog(null);
     } catch (problem) {
       setError(problem instanceof Error ? problem.message : "No pudimos registrar tu decisión");
@@ -61,6 +62,7 @@ export function PublicQuote({ quote: initialQuote, customer, settings }: { quote
         <div>{quote.status === "rejected" || quote.status === "archived" ? <Archive size={25} /> : quote.status === "review" ? <Clock3 size={25} /> : <CheckCircle2 size={25} />}<div><h3>{message.title}</h3><p>{message.text(quote)}</p></div></div>
         {open && <div className="public-actions">
           <button className="button button-primary" onClick={() => { setDialog("accept"); setError(""); }}>Aprobar oferta<ArrowUpRight size={17} /></button>
+          <button className="button button-secondary" onClick={() => { setDialog("changes"); setNote(""); setError(""); }}><MessageSquare size={16} />Pedir cambios</button>
           <button className="button button-secondary" onClick={() => { setDialog("review"); setError(""); }}><Clock3 size={16} />Revisar 15 días</button>
           <button className="button button-secondary" onClick={() => { setDialog("reject"); setError(""); }}><XCircle size={16} />Rechazar</button>
         </div>}
@@ -68,18 +70,18 @@ export function PublicQuote({ quote: initialQuote, customer, settings }: { quote
       </div>
       <footer className="public-footer">Menos papeleo. Más posibilidades.<Brand small /></footer>
     </main>
-    {dialog && <Modal title={dialog === "accept" ? "Aprobar esta oferta" : dialog === "reject" ? "Rechazar esta oferta" : "Dejarla en revisión 15 días"} subtitle={dialog === "review" ? "Pasado ese plazo, si no hay una decisión, la oferta se archiva." : "Confirma con tu nombre."} onClose={() => { if (!busy) setDialog(null); }}>
+    {dialog && <Modal title={dialog === "accept" ? "Aprobar esta oferta" : dialog === "reject" ? "Rechazar esta oferta" : dialog === "changes" ? "Pedir cambios" : "Dejarla en revisión 15 días"} subtitle={dialog === "changes" ? "Cuéntanos qué te gustaría ajustar. El equipo lo verá y te enviará una nueva versión." : dialog === "review" ? "Pasado ese plazo, si no hay una decisión, la oferta se archiva." : "Confirma con tu nombre."} onClose={() => { if (!busy) setDialog(null); }}>
       <form onSubmit={decide}>
         <div className="modal-body">
           <div className="accept-summary"><span>{quote.number} · {quote.title}</span><strong>{money(quote.totalCents, quote.currency)} {quote.currency}</strong></div>
           <label className="form-field">Tu nombre completo<input required minLength={2} maxLength={180} value={name} onChange={(event) => setName(event.target.value)} placeholder="Escribe tu nombre" /></label>
-          {dialog !== "accept" && <label className="form-field">Una nota para el emisor (opcional)<textarea rows={3} maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} placeholder={dialog === "reject" ? "¿Hay algo que debamos mejorar?" : "¿Qué te gustaría revisar?"} /></label>}
-          <label className="checkbox-label"><input type="checkbox" required />{dialog === "accept" ? "Acepto los conceptos, importes y condiciones de esta cotización." : dialog === "reject" ? "Confirmo que rechazo esta oferta." : "Pido 15 días para revisarla. Si no decido en ese plazo, podrá archivarse."}</label>
+          {dialog !== "accept" && <label className="form-field">{dialog === "changes" ? "¿Qué te gustaría cambiar?" : "Una nota para el emisor (opcional)"}<textarea rows={dialog === "changes" ? 5 : 3} required={dialog === "changes"} minLength={dialog === "changes" ? 8 : undefined} maxLength={1500} value={note} onChange={(event) => setNote(event.target.value)} placeholder={dialog === "reject" ? "¿Hay algo que debamos mejorar?" : dialog === "changes" ? "Ej. Me gustaría otro color, otra medida o quitar un concepto." : "¿Qué te gustaría revisar?"} /></label>}
+          <label className="checkbox-label"><input type="checkbox" required />{dialog === "accept" ? "Acepto los conceptos, importes y condiciones de esta cotización." : dialog === "reject" ? "Confirmo que rechazo esta oferta." : dialog === "changes" ? "Quiero que el equipo reciba estos comentarios y me envíe una versión corregida." : "Pido 15 días para revisarla. Si no decido en ese plazo, podrá archivarse."}</label>
           {error && <p className="form-error" role="alert">{error}</p>}
         </div>
         <div className="modal-footer">
           <button type="button" className="button button-secondary" onClick={() => setDialog(null)} disabled={busy}>Volver</button>
-          <button className={`button ${dialog === "reject" ? "button-danger" : "button-primary"}`} disabled={busy}>{busy ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}{dialog === "accept" ? "Confirmar aprobación" : dialog === "reject" ? "Confirmar rechazo" : "Confirmar revisión"}</button>
+          <button className={`button ${dialog === "reject" ? "button-danger" : "button-primary"}`} disabled={busy}>{busy ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}{dialog === "accept" ? "Confirmar aprobación" : dialog === "reject" ? "Confirmar rechazo" : dialog === "changes" ? "Enviar comentarios" : "Confirmar revisión"}</button>
         </div>
       </form>
     </Modal>}

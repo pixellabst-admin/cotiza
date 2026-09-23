@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 const unauthorized = () => NextResponse.json({ error: "Tu sesión terminó. Vuelve a iniciar sesión." }, { status: 401 });
 const idSchema = z.number().int().positive();
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha no es válida").refine((value) => !isNaN(Date.parse(value)) && new Date(value + "T12:00:00Z").toISOString().slice(0, 10) === value, "La fecha no es válida");
-const quoteStatusSchema = z.enum(["draft", "sent", "review", "accepted", "rejected", "expired", "archived"]);
+const quoteStatusSchema = z.enum(["draft", "sent", "review", "changes", "accepted", "rejected", "expired", "archived"]);
 const quoteSchema = z.object({
   id: idSchema.optional(),
   title: z.string().trim().min(2, "Escribe un título para la cotización").max(240),
