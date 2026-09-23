@@ -42,7 +42,9 @@ export function Workspace({ initialData, initialView = "dashboard", user }: { in
   const periodChangeRows = data.quotes.filter((quote) => quote.status === "changes" && quote.issueDate.startsWith(periodLabel)).map((quote) => ({ quote, customer: data.customers.find((customer) => customer.id === quote.customerId) })).filter((item): item is { quote: Quote; customer: Customer } => Boolean(item.customer));
   const pending = monthQuotes.filter((quote) => quote.status === "sent");
   const accepted = monthQuotes.filter((quote) => quote.status === "accepted");
-  const commented = data.quotes.filter((quote) => quote.status === "changes").sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const commented = data.quotes
+    .filter((quote) => quote.status === "changes" || ((quote.status === "rejected" || quote.status === "review") && Boolean(quote.decisionNote?.trim())))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const activeQuote = modal && "id" in modal ? data.quotes.find((quote) => quote.id === modal.id) : undefined;
   const activeCustomer = activeQuote ? data.customers.find((customer) => customer.id === activeQuote.customerId) : undefined;
   const firstName = data.settings.ownerName.trim().split(" ")[0];
@@ -134,7 +136,7 @@ export function Workspace({ initialData, initialView = "dashboard", user }: { in
       </div> : view !== "settings" && <button className="button button-primary" onClick={() => setModal({ type: view === "customers" ? "customer" : "quote" })}><Plus size={18} />{view === "customers" ? "Nuevo cliente" : "Nueva cotización"}</button>}</div></div>
 
     {view === "dashboard" && commented.length > 0 && <section className="card comments-inbox">
-      <div className="comments-inbox-head"><span className="comments-icon"><MessageSquareText size={18} /></span><div><h2>Comentarios de clientes</h2><p>{commented.length} {commented.length === 1 ? "cotización necesita tu revisión" : "cotizaciones necesitan tu revisión"}.</p></div><button className="text-button" onClick={() => navigate("quotes", "changes")}>Ver todas</button></div>
+      <div className="comments-inbox-head"><span className="comments-icon"><MessageSquareText size={18} /></span><div><h2>Comentarios de clientes</h2><p>{commented.length} {commented.length === 1 ? "cotización necesita tu revisión" : "cotizaciones necesitan tu revisión"}.</p></div><button className="text-button" onClick={() => { setFilter("changes"); navigate("quotes", "changes"); }}>Ver todas</button></div>
       <div className="comments-inbox-list">{commented.slice(0, 4).map((quote) => {
         const customer = data.customers.find((item) => item.id === quote.customerId);
         return <button key={quote.id} className="comment-inbox-row" onClick={() => setModal({ type: "detail", id: quote.id })}>
