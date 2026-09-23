@@ -1,4 +1,4 @@
-import type { Business, Customer, Quote } from "./types";
+import type { Business, Customer, Period, Quote, Sale } from "./types";
 import { calculateTotals, dateInput, formatDate, money, socialLinks, statusMeta } from "./utils";
 
 export function downloadCsv(quotes: Quote[], customers: Customer[]) {
@@ -18,6 +18,45 @@ export function downloadCsv(quotes: Quote[], customers: Customer[]) {
   link.download = `cotizaciones-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function downloadQuotesPdfReport(quotes: Quote[], customers: Customer[], business: Business, period: Period) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF();
+  const label = period === "year" ? String(new Date().getFullYear()) : period === "previous" ? "Mes anterior" : "Este mes";
+  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" = "left") => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(value, x, y, { align }); };
+  doc.setFillColor(237, 247, 242); doc.rect(0, 0, 210, 38, "F");
+  text(business.name, 20, 18, 17, true, "#208363"); text("REPORTE DE COTIZACIONES", 190, 16, 11, true, "#557567", "right"); text(label, 190, 27, 9, false, "#65766d", "right");
+  let y = 52;
+  doc.setFillColor(243, 246, 244); doc.rect(20, y, 170, 10, "F");
+  text("Número", 24, y + 7, 8, true, "#758179"); text("Cliente", 70, y + 7, 8, true, "#758179"); text("Estado", 145, y + 7, 8, true, "#758179"); text("Total", 186, y + 7, 8, true, "#758179", "right"); y += 15;
+  for (const quote of quotes) {
+    if (y > 275) { doc.addPage(); y = 24; }
+    const customer = customers.find((item) => item.id === quote.customerId);
+    text(quote.number, 24, y, 9, true); text((customer?.name ?? "").slice(0, 28), 70, y, 9, false, "#405246"); text(statusMeta[quote.status].label, 145, y, 9, false, "#5c7757"); text(money(quote.totalCents, quote.currency), 186, y, 9, true, "#263d34", "right");
+    y += 9;
+  }
+  doc.save(`reporte-cotizaciones-${dateInput()}.pdf`);
+}
+
+export async function downloadSalesPdfReport(sales: Sale[], business: Business, period: Period) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF();
+  const label = period === "year" ? String(new Date().getFullYear()) : period === "previous" ? "Mes anterior" : "Este mes";
+  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" = "left") => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(value, x, y, { align }); };
+  doc.setFillColor(237, 247, 242); doc.rect(0, 0, 210, 38, "F");
+  text(business.name, 20, 18, 17, true, "#208363"); text("REPORTE DE VENTAS", 190, 16, 11, true, "#557567", "right"); text(label, 190, 27, 9, false, "#65766d", "right");
+  let y = 52;
+  doc.setFillColor(243, 246, 244); doc.rect(20, y, 170, 10, "F");
+  text("Folio", 24, y + 7, 8, true, "#758179"); text("Cliente", 70, y + 7, 8, true, "#758179"); text("Fecha", 145, y + 7, 8, true, "#758179"); text("Total", 186, y + 7, 8, true, "#758179", "right"); y += 15;
+  const total = sales.filter((sale) => sale.status !== "cancelled").reduce((sum, sale) => sum + sale.totalCents, 0);
+  for (const sale of sales) {
+    if (y > 270) { doc.addPage(); y = 24; }
+    text(sale.number, 24, y, 9, true); text(sale.customerName.slice(0, 30), 70, y, 9); text(formatDate(sale.soldAt), 145, y, 9); text(money(sale.totalCents, business.currency), 186, y, 9, true, "#263d34", "right"); y += 9;
+  }
+  y += 8;
+  text("TOTAL", 145, y, 11, true, "#208363"); text(money(total, business.currency), 186, y, 12, true, "#208363", "right");
+  doc.save(`reporte-ventas-${dateInput()}.pdf`);
 }
 
 export async function downloadChangesPdf(changes: { quote: Quote; customer: Customer }[], business: Business, periodLabel: string) {
