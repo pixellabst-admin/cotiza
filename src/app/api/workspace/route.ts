@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         const id = idSchema.parse(body.id);
         const [existing] = await db.select().from(quotes).where(eq(quotes.id, id));
         if (!existing) throw new Error("Cotización no encontrada");
-        const { id: _id, number: _number, shareToken: _token, createdAt: _created, acceptedBy: _accepted, ...rest } = existing;
+        const { id: _id, number: _number, shareToken: _token, createdAt: _created, acceptedBy: _accepted, thankYouMessage: _thanks, thankYouPhoto: _photo, thankYouToken: _thanksToken, ...rest } = existing;
         const [settings] = await db.select().from(businessSettings).where(eq(businessSettings.id, 1));
         await db.transaction(async (tx) => {
           const number = await allocateQuoteNumber(tx, settings.quotePrefix, settings.nextQuoteNumber);
@@ -149,6 +149,18 @@ export async function POST(request: NextRequest) {
       case "saveSettings": {
         const values = businessSchema.parse(body);
         await db.update(businessSettings).set(values).where(eq(businessSettings.id, 1));
+        break;
+      }
+      case "saveThankYou": {
+        const input = z.object({
+          id: idSchema,
+          message: z.string().trim().min(8, "Escribe un mensaje de agradecimiento").max(2000),
+          photo: z.string().max(900000).refine((value) => value === "" || value.startsWith("data:image/"), "La foto debe ser una imagen").optional().default(""),
+        }).parse(body);
+        const [existing] = await db.select().from(quotes).where(eq(quotes.id, input.id));
+        if (!existing) throw new Error("Cotización no encontrada");
+        await db.update(quotes).set({ thankYouMessage: input.message, thankYouPhoto: input.photo }).where(eq(quotes.id, input.id));
+        resultId = input.id;
         break;
       }
       case "resetQuoteNumbers": {

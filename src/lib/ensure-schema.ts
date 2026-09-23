@@ -82,6 +82,11 @@ async function createTables() {
     )
   `);
   await db.execute(sql`ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "decision_note" text DEFAULT '' NOT NULL`);
+  await db.execute(sql`ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "thank_you_message" text DEFAULT '' NOT NULL`);
+  await db.execute(sql`ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "thank_you_photo" text DEFAULT '' NOT NULL`);
+  await db.execute(sql`ALTER TABLE "quotes" ADD COLUMN IF NOT EXISTS "thank_you_token" uuid DEFAULT gen_random_uuid()`);
+  await db.execute(sql`UPDATE "quotes" SET "thank_you_token" = gen_random_uuid() WHERE "thank_you_token" IS NULL`);
+  await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS "quotes_thank_you_token_unique" ON "quotes" ("thank_you_token")`);
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "quote_prefix" varchar(12) DEFAULT 'COT' NOT NULL`);
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "next_quote_number" integer DEFAULT 1 NOT NULL`);
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "logo_data" text DEFAULT '' NOT NULL`);

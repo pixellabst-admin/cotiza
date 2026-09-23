@@ -37,6 +37,9 @@ export const quotes = pgTable("quotes", {
   sharedVia: jsonb("shared_via").$type<ShareChannel[]>().notNull().default([]),
   acceptedBy: varchar("accepted_by", { length: 180 }),
   decisionNote: text("decision_note").notNull().default(""),
+  thankYouMessage: text("thank_you_message").notNull().default(""),
+  thankYouPhoto: text("thank_you_photo").notNull().default(""),
+  thankYouToken: uuid("thank_you_token").notNull().defaultRandom().unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

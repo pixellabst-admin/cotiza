@@ -109,3 +109,16 @@ export async function getPublicQuote(token: string) {
   const serialized: Quote = { ...quote, createdAt: quote.createdAt.toISOString() };
   return { quote: { ...serialized, status: effectiveStatus(serialized) }, customer: { ...customer, createdAt: customer.createdAt.toISOString() }, settings };
 }
+
+export async function getThankYouCard(token: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) return null;
+  await ensureSeed();
+  const [quote] = await db.select().from(quotes).where(eq(quotes.thankYouToken, token));
+  if (!quote || !quote.thankYouMessage.trim()) return null;
+  const [[customer], [settings]] = await Promise.all([
+    db.select().from(customers).where(eq(customers.id, quote.customerId)),
+    db.select().from(businessSettings).where(eq(businessSettings.id, 1)),
+  ]);
+  const serialized: Quote = { ...quote, createdAt: quote.createdAt.toISOString() };
+  return { quote: { ...serialized, status: effectiveStatus(serialized) }, customer: { ...customer, createdAt: customer.createdAt.toISOString() }, settings };
+}
