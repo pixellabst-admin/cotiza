@@ -10,7 +10,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const user = await getSessionUser();
   if (!user) redirect("/login");
   const [data, params] = await Promise.all([getAppData(), searchParams]);
-  const allowed = ["dashboard", "quotes", "customers", "reports", "settings"];
+  const allowed = ["dashboard", "quotes", "customers", "sales", "reports", "settings"];
   const initialView = allowed.includes(params.view ?? "") ? params.view as View : "dashboard";
   return <Workspace initialData={data} initialView={initialView} user={user} />;
 }

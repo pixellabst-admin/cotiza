@@ -3,6 +3,9 @@ import { pgTable, serial, varchar, text, integer, doublePrecision, jsonb, date, 
 export type QuoteItem = { description: string; quantity: number; unitPrice: number };
 export type QuoteStatus = "draft" | "sent" | "review" | "accepted" | "rejected" | "expired" | "archived";
 export type ShareChannel = "whatsapp" | "email";
+export type SaleItem = { description: string; quantity: number; unitPrice: number };
+export type SaleStatus = "paid" | "pending" | "cancelled";
+export type PaymentMethod = "cash" | "transfer" | "card" | "other";
 
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
@@ -68,4 +71,22 @@ export const businessSettings = pgTable("business_settings", {
   facebook: varchar("facebook", { length: 240 }).notNull().default(""),
   instagram: varchar("instagram", { length: 240 }).notNull().default(""),
   tiktok: varchar("tiktok", { length: 240 }).notNull().default(""),
+});
+
+export const sales = pgTable("sales", {
+  id: serial("id").primaryKey(),
+  number: varchar("number", { length: 60 }).notNull().unique(),
+  customerId: integer("customer_id").references(() => customers.id),
+  customerName: varchar("customer_name", { length: 180 }).notNull().default(""),
+  soldAt: date("sold_at").notNull(),
+  items: jsonb("items").$type<SaleItem[]>().notNull(),
+  subtotalCents: integer("subtotal_cents").notNull(),
+  taxCents: integer("tax_cents").notNull(),
+  totalCents: integer("total_cents").notNull(),
+  taxRate: doublePrecision("tax_rate").notNull().default(16),
+  paymentMethod: text("payment_method", { enum: ["cash", "transfer", "card", "other"] }).notNull().default("transfer"),
+  status: text("status", { enum: ["paid", "pending", "cancelled"] }).notNull().default("paid"),
+  notes: text("notes").notNull().default(""),
+  quoteId: integer("quote_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });

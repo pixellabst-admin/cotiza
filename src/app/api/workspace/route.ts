@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { businessSettings, customers, quotes } from "@/db/schema";
+import { businessSettings, customers, quotes, sales } from "@/db/schema";
 import { ensureSeed, getAppData } from "@/lib/data";
 import { getSessionUser } from "@/lib/auth";
 import { addDays, calculateTotals, dateInput } from "@/lib/utils";
@@ -153,6 +153,77 @@ export async function POST(request: NextRequest) {
       }
       case "resetQuoteNumbers": {
         await db.update(businessSettings).set({ nextQuoteNumber: 1 }).where(eq(businessSettings.id, 1));
+        break;
+      }
+      case "saveSale": {
+        const input = z.object({
+          id: idSchema.optional(),
+          customerId: z.number().int().positive().optional().nullable(),
+          customerName: z.string().trim().min(2, "Escribe el nombre del cliente o del comprador").max(180),
+          soldAt: dateSchema,
+          items: z.array(z.object({ description: z.string().trim().min(1).max(500), quantity: z.number().positive().max(10000), unitPrice: z.number().min(0).max(1000000) })).min(1).max(40),
+          taxRate: z.number().min(0).max(100),
+          paymentMethod: z.enum(["cash", "transfer", "card", "other"]),
+          status: z.enum(["paid", "pending", "cancelled"]),
+          notes: z.string().max(2000),
+          quoteId: z.number().int().positive().optional().nullable(),
+        }).parse(body);
+        const { discountCents: _d, ...totals } = calculateTotals(input.items, input.taxRate, 0);
+        const { id, ...values } = input;
+        if (id) {
+          await db.update(sales).set({ ...values, ...totals }).where(eq(sales.id, id));
+          resultId = id;
+        } else {
+          await db.transaction(async (tx) => {
+            const existing = await tx.select({ number: sales.number }).from(sales);
+            let max = 0;
+            for (const row of existing) {
+              const match = row.number.match(/(\d+)$/);
+              if (match) max = Math.max(max, Number(match[1]));
+            }
+            const [created] = await tx.insert(sales).values({ ...values, ...totals, number: `VTA-${String(max + 1).padStart(4, "0")}` }).returning();
+            resultId = created.id;
+          });
+        }
+        break;
+      }
+      case "deleteSale": {
+        const id = idSchema.parse(body.id);
+        await db.delete(sales).where(eq(sales.id, id));
+        break;
+      }
+      case "saleFromQuote": {
+        const id = idSchema.parse(body.id);
+        const [quote] = await db.select().from(quotes).where(eq(quotes.id, id));
+        if (!quote) throw new Error("Cotización no encontrada");
+        if (quote.status !== "accepted") throw new Error("Solo las cotizaciones aprobadas se pueden convertir en venta");
+        const [already] = await db.select({ id: sales.id }).from(sales).where(eq(sales.quoteId, quote.id)).limit(1);
+        if (already) throw new Error("Esta cotización ya tiene una venta registrada");
+        const [customer] = await db.select().from(customers).where(eq(customers.id, quote.customerId));
+        await db.transaction(async (tx) => {
+          const existing = await tx.select({ number: sales.number }).from(sales);
+          let max = 0;
+          for (const row of existing) {
+            const match = row.number.match(/(\d+)$/);
+            if (match) max = Math.max(max, Number(match[1]));
+          }
+          const [created] = await tx.insert(sales).values({
+            number: `VTA-${String(max + 1).padStart(4, "0")}`,
+            customerId: quote.customerId,
+            customerName: customer?.name || "Cliente",
+            soldAt: dateInput(),
+            items: quote.items,
+            subtotalCents: quote.subtotalCents,
+            taxCents: quote.taxCents,
+            totalCents: quote.totalCents,
+            taxRate: quote.taxRate,
+            paymentMethod: "transfer",
+            status: "paid",
+            notes: `Desde ${quote.number} · ${quote.title}`,
+            quoteId: quote.id,
+          }).returning();
+          resultId = created.id;
+        });
         break;
       }
       default: return NextResponse.json({ error: "Operación no reconocida" }, { status: 400 });

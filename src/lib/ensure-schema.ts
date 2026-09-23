@@ -89,4 +89,24 @@ async function createTables() {
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "facebook" varchar(240) DEFAULT '' NOT NULL`);
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "instagram" varchar(240) DEFAULT '' NOT NULL`);
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "tiktok" varchar(240) DEFAULT '' NOT NULL`);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "sales" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "number" varchar(60) NOT NULL,
+      "customer_id" integer REFERENCES "customers"("id"),
+      "customer_name" varchar(180) DEFAULT '' NOT NULL,
+      "sold_at" date NOT NULL,
+      "items" jsonb NOT NULL,
+      "subtotal_cents" integer NOT NULL,
+      "tax_cents" integer NOT NULL,
+      "total_cents" integer NOT NULL,
+      "tax_rate" double precision DEFAULT 16 NOT NULL,
+      "payment_method" text DEFAULT 'transfer' NOT NULL,
+      "status" text DEFAULT 'paid' NOT NULL,
+      "notes" text DEFAULT '' NOT NULL,
+      "quote_id" integer,
+      "created_at" timestamp DEFAULT now() NOT NULL
+    )
+  `);
+  await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS "sales_number_unique" ON "sales" ("number")`);
 }
