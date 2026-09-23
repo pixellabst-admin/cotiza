@@ -74,6 +74,8 @@ export const businessSettings = pgTable("business_settings", {
   facebook: varchar("facebook", { length: 240 }).notNull().default(""),
   instagram: varchar("instagram", { length: 240 }).notNull().default(""),
   tiktok: varchar("tiktok", { length: 240 }).notNull().default(""),
+  themeMode: varchar("theme_mode", { length: 10 }).notNull().default("light"),
+  themeAccent: varchar("theme_accent", { length: 16 }).notNull().default("green"),
 });
 
 export const sales = pgTable("sales", {

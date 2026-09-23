@@ -94,6 +94,8 @@ async function createTables() {
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "facebook" varchar(240) DEFAULT '' NOT NULL`);
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "instagram" varchar(240) DEFAULT '' NOT NULL`);
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "tiktok" varchar(240) DEFAULT '' NOT NULL`);
+  await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "theme_mode" varchar(10) DEFAULT 'light' NOT NULL`);
+  await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "theme_accent" varchar(16) DEFAULT 'green' NOT NULL`);
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS "sales" (
       "id" serial PRIMARY KEY NOT NULL,

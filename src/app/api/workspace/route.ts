@@ -41,6 +41,8 @@ const businessSchema = z.object({
   facebook: z.string().trim().max(240).optional().default(""),
   instagram: z.string().trim().max(240).optional().default(""),
   tiktok: z.string().trim().max(240).optional().default(""),
+  themeMode: z.enum(["light", "dark"]).optional().default("light"),
+  themeAccent: z.enum(["green", "blue", "purple", "amber", "rose"]).optional().default("green"),
 });
 
 export async function GET() {
