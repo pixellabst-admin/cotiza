@@ -20,7 +20,7 @@ const quoteSchema = z.object({
   customerId: idSchema,
   issueDate: dateSchema,
   validUntil: dateSchema,
-  items: z.array(z.object({ description: z.string().trim().min(1, "Describe cada concepto").max(500), quantity: z.number().positive("La cantidad debe ser mayor a cero").max(10000), unitPrice: z.number().min(0).max(1000000) })).min(1).max(40),
+  items: z.array(z.object({ description: z.string().trim().min(1, "Describe cada concepto").max(500), quantity: z.number().positive("La cantidad debe ser mayor a cero").max(10000), unitPrice: z.number().min(0).max(1000000), photo: z.string().max(900000).refine((value) => !value || value.startsWith("data:image/"), "La foto debe ser una imagen").optional().default("") })).min(1).max(40),
   taxRate: z.number().min(0).max(100),
   discountPercent: z.number().min(0).max(100),
   notes: z.string().max(5000),

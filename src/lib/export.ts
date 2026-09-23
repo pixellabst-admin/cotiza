@@ -92,11 +92,18 @@ export async function downloadQuotePdf(quote: Quote, customer: Customer, busines
   for (const item of quote.items) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    const lines = doc.splitTextToSize(clean(item.description), 84);
-    const height = Math.max(14, lines.length * 5 + 6);
+    const hasPhoto = Boolean(item.photo && item.photo.startsWith("data:image/"));
+    const lines = doc.splitTextToSize(clean(item.description), hasPhoto ? 62 : 84);
+    const height = Math.max(hasPhoto ? 28 : 14, lines.length * 5 + 6);
     if (y + height > 250) { doc.addPage(); y = 24; tableHeader(); }
+    if (hasPhoto) {
+      try {
+        const format = item.photo!.includes("jpeg") ? "JPEG" : "PNG";
+        doc.addImage(item.photo!, format, 24, y - 2, 22, 22);
+      } catch { /* skip broken photo */ }
+    }
     doc.setTextColor("#263d34");
-    doc.text(lines, 24, y + 2);
+    doc.text(lines, hasPhoto ? 50 : 24, y + 2);
     text(String(item.quantity), 123, y + 2, 9, false, "#65766d", "right");
     text(money(Math.round(item.unitPrice * 100), quote.currency), 156, y + 2, 9, false, "#65766d", "right");
     text(money(Math.round(item.unitPrice * item.quantity * 100), quote.currency), 186, y + 2, 9, true, "#263d34", "right");

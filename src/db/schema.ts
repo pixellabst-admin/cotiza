@@ -1,6 +1,6 @@
 import { pgTable, serial, varchar, text, integer, doublePrecision, jsonb, date, timestamp, uuid } from "drizzle-orm/pg-core";
 
-export type QuoteItem = { description: string; quantity: number; unitPrice: number };
+export type QuoteItem = { description: string; quantity: number; unitPrice: number; photo?: string };
 export type QuoteStatus = "draft" | "sent" | "review" | "accepted" | "rejected" | "expired" | "archived";
 export type ShareChannel = "whatsapp" | "email";
 export type SaleItem = { description: string; quantity: number; unitPrice: number };
