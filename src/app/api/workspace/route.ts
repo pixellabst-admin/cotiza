@@ -252,6 +252,7 @@ export async function POST(request: NextRequest) {
           status: z.enum(["paid", "pending", "cancelled"]),
           kind: z.enum(["purchase", "expense"]),
           notes: z.string().max(2000),
+          receiptPhoto: z.string().max(900000).refine((value) => value === "" || value.startsWith("data:image/"), "La foto debe ser una imagen").optional().default(""),
         }).parse(body);
         const amountCents = Math.round(input.amount * 100);
         const { id, amount, ...values } = input;

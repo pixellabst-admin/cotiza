@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Plus, Trash2, Pencil, ReceiptText, ShoppingCart, Wallet, CircleDot, TrendingDown, FileSpreadsheet, Check, LoaderCircle, X, FileDown } from "lucide-react";
+import { Plus, Trash2, Pencil, ReceiptText, ShoppingCart, Wallet, CircleDot, TrendingDown, FileSpreadsheet, Check, LoaderCircle, X, FileDown, ImagePlus, Paperclip } from "lucide-react";
 import type { AppData, Expense, PaymentMethod } from "@/lib/types";
 import { dateInput, formatDate, money } from "@/lib/utils";
+import { compressImage } from "@/lib/image";
 import { EmptyState, Modal } from "./ui";
 
 const payLabel: Record<PaymentMethod, string> = { cash: "Efectivo", transfer: "Transferencia", card: "Tarjeta", other: "Otro" };
@@ -64,7 +65,7 @@ export function ExpensesDesk({ data, periodPrefix, onSave, onDelete, onExportCsv
         <button className="button button-primary button-sm" onClick={() => setEditing("new")}><Plus size={15} />Registrar</button>
       </div></div>
       <div className="table-toolbar"><div className="table-tabs"><button className={kindFilter === "all" ? "active" : ""} onClick={() => setKindFilter("all")}>Todo</button><button className={kindFilter === "purchase" ? "active" : ""} onClick={() => setKindFilter("purchase")}>Compras</button><button className={kindFilter === "expense" ? "active" : ""} onClick={() => setKindFilter("expense")}>Gastos</button></div></div>
-      <div className="table-scroll"><table className="quotes-table"><thead><tr><th>Folio</th><th>Descripción</th><th>Categoría</th><th>Fecha</th><th>Pago</th><th>Estado</th><th className="amount-cell">Monto</th><th aria-label="Acciones" /></tr></thead><tbody>{visible.map((expense) => <tr key={expense.id}><td><strong>{expense.number}</strong><div className="quote-title-cell"><span>{kindLabel[expense.kind]}{expense.supplier ? ` · ${expense.supplier}` : ""}</span></div></td><td>{expense.description}</td><td>{expense.category}</td><td className="date-cell">{formatDate(expense.spentAt, true)}</td><td>{payLabel[expense.paymentMethod]}</td><td><span className={`status-badge status-${expense.status === "paid" ? "accepted" : expense.status === "pending" ? "sent" : "draft"}`}><i />{statusLabel[expense.status]}</span></td><td className="amount-cell"><strong>{money(expense.amountCents, currency)}</strong></td><td><div className="row-actions"><button className="icon-button" aria-label={`Editar ${expense.number}`} onClick={() => setEditing(expense)}><Pencil size={15} /></button><button className="icon-button danger-hover" aria-label={`Eliminar ${expense.number}`} onClick={() => onDelete(expense)}><Trash2 size={15} /></button></div></td></tr>)}</tbody></table></div>
+      <div className="table-scroll"><table className="quotes-table"><thead><tr><th>Folio</th><th>Descripción</th><th>Categoría</th><th>Fecha</th><th>Pago</th><th>Estado</th><th className="amount-cell">Monto</th><th aria-label="Acciones" /></tr></thead><tbody>{visible.map((expense) => <tr key={expense.id}><td><strong>{expense.number}</strong><div className="quote-title-cell"><span>{kindLabel[expense.kind]}{expense.supplier ? ` · ${expense.supplier}` : ""}</span></div></td><td>{expense.description}</td><td>{expense.category}</td><td className="date-cell">{formatDate(expense.spentAt, true)}</td><td>{payLabel[expense.paymentMethod]}</td><td><span className={`status-badge status-${expense.status === "paid" ? "accepted" : expense.status === "pending" ? "sent" : "draft"}`}><i />{statusLabel[expense.status]}</span></td><td className="amount-cell"><strong>{money(expense.amountCents, currency)}</strong></td><td><div className="row-actions">{expense.receiptPhoto && <a className="icon-button" href={expense.receiptPhoto} target="_blank" rel="noreferrer" aria-label={`Ver comprobante ${expense.number}`} title="Ver factura o ticket"><ImagePlus size={15} /></a>}<button className="icon-button" aria-label={`Editar ${expense.number}`} onClick={() => setEditing(expense)}><Pencil size={15} /></button><button className="icon-button danger-hover" aria-label={`Eliminar ${expense.number}`} onClick={() => onDelete(expense)}><Trash2 size={15} /></button></div></td></tr>)}</tbody></table></div>
       {!visible.length && <EmptyState title="Aún no hay movimientos" description="Registra compras de inventario, renta, servicios, materiales y todo lo que sale de caja." onAction={() => setEditing("new")} action="Registrar gasto" />}
     </section>
 
@@ -83,9 +84,15 @@ function ExpenseForm({ expense, currency, onClose, onSave }: { expense?: Expense
     status: (expense?.status ?? "paid") as "paid" | "pending" | "cancelled",
     kind: (expense?.kind ?? "expense") as "purchase" | "expense",
     notes: expense?.notes ?? "",
+    receiptPhoto: expense?.receiptPhoto ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  async function loadReceipt(file?: File | null) {
+    if (!file) return;
+    try { setInput({ ...input, receiptPhoto: await compressImage(file, 1000, 0.78) }); setError(""); }
+    catch (problem) { setError(problem instanceof Error ? problem.message : "No pudimos leer la foto"); }
+  }
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!input.description.trim()) { setError("Escribe una descripción."); return; }
@@ -104,6 +111,17 @@ function ExpenseForm({ expense, currency, onClose, onSave }: { expense?: Expense
       <label className="form-field">Monto<div className="currency-input"><span>$</span><input required type="number" min="0.01" step="0.01" value={input.amount} onChange={(event) => setInput({ ...input, amount: Number(event.target.value) })} /></div></label>
       <label className="form-field">Forma de pago<select value={input.paymentMethod} onChange={(event) => setInput({ ...input, paymentMethod: event.target.value as PaymentMethod })}><option value="transfer">Transferencia</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
       <label className="form-field">Estado<select value={input.status} onChange={(event) => setInput({ ...input, status: event.target.value as "paid" | "pending" | "cancelled" })}><option value="paid">Pagada</option><option value="pending">Por pagar</option><option value="cancelled">Cancelada</option></select></label>
+      <label className="form-field full-width">Foto de factura o ticket
+        <span className="logo-upload">
+          {input.receiptPhoto ? <img src={input.receiptPhoto} alt="Comprobante" className="logo-preview receipt-preview" /> : <span className="logo-placeholder"><Paperclip size={22} /></span>}
+          <span className="logo-upload-actions">
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { void loadReceipt(event.target.files?.[0]); event.target.value = ""; }} />
+            {input.receiptPhoto && <a className="text-button" href={input.receiptPhoto} target="_blank" rel="noreferrer">Ver comprobante</a>}
+            {input.receiptPhoto && <button type="button" className="text-button" onClick={() => setInput({ ...input, receiptPhoto: "" })}>Quitar foto</button>}
+          </span>
+        </span>
+        <span className="field-help">PNG o JPG. Se guarda con el movimiento para tu control.</span>
+      </label>
       <label className="form-field full-width">Notas<textarea rows={2} maxLength={2000} value={input.notes} onChange={(event) => setInput({ ...input, notes: event.target.value })} /></label>
       <p className="field-help full-width">Moneda: {currency}. Las compras y gastos se usan para calcular la utilidad del período.</p>
       {error && <div className="form-error full-width" role="alert">{error}</div>}

@@ -90,6 +90,7 @@ export const expenses = pgTable("expenses", {
   status: text("status", { enum: ["paid", "pending", "cancelled"] }).notNull().default("paid"),
   kind: text("kind", { enum: ["purchase", "expense"] }).notNull().default("expense"),
   notes: text("notes").notNull().default(""),
+  receiptPhoto: text("receipt_photo").notNull().default(""),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

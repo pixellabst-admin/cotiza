@@ -113,6 +113,7 @@ async function createTables() {
     )
   `);
   await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS "expenses_number_unique" ON "expenses" ("number")`);
+  await db.execute(sql`ALTER TABLE "expenses" ADD COLUMN IF NOT EXISTS "receipt_photo" text DEFAULT '' NOT NULL`);
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS "sales" (
       "id" serial PRIMARY KEY NOT NULL,
