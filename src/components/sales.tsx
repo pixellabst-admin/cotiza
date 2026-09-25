@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Plus, Trash2, Pencil, ShoppingBag, TrendingUp, Receipt, Wallet, Sparkles, Download, Check, LoaderCircle, X, Banknote, CreditCard, ArrowLeftRight, CircleDot, FileText } from "lucide-react";
+import { Plus, Trash2, Pencil, ShoppingBag, TrendingUp, Receipt, Wallet, Sparkles, Download, Check, LoaderCircle, X, Banknote, CreditCard, ArrowLeftRight, CircleDot, FileText, Send } from "lucide-react";
 import type { AppData, Customer, PaymentMethod, Quote, Sale, SaleItem, SaleStatus } from "@/lib/types";
 import { calculateTotals, dateInput, formatDate, money } from "@/lib/utils";
 import { Avatar, EmptyState, Modal } from "./ui";
+import { ReceiptShareModal } from "./receipt-share-modal";
 
 const payLabel: Record<PaymentMethod, string> = { cash: "Efectivo", transfer: "Transferencia", card: "Tarjeta", other: "Otro" };
 const statusLabel: Record<SaleStatus, string> = { paid: "Pagada", pending: "Por cobrar", cancelled: "Cancelada" };
@@ -19,6 +20,7 @@ export function SalesDesk({ data, periodPrefix, onSave, onDelete, onFromQuote, o
   onReceipt: (sale: Sale) => void;
 }) {
   const [editing, setEditing] = useState<Sale | "new" | null>(null);
+  const [sharing, setSharing] = useState<Sale | null>(null);
   const currency = data.settings.currency;
   const monthSales = data.sales.filter((sale) => sale.soldAt.startsWith(periodPrefix) && sale.status !== "cancelled");
   const paid = monthSales.filter((sale) => sale.status === "paid");
@@ -58,11 +60,12 @@ export function SalesDesk({ data, periodPrefix, onSave, onDelete, onFromQuote, o
 
     <section className="card quotes-card"><div className="quotes-card-heading"><div className="heading-with-count"><h2>Libro de ventas</h2><span className="count-pill">{data.sales.length}</span></div><div className="heading-actions"><button className="button button-secondary button-sm" onClick={onExport}><Download size={15} />Exportar CSV</button><button className="button button-primary button-sm" onClick={() => setEditing("new")}><Plus size={15} />Registrar venta</button></div></div>
       <div className="table-scroll"><table className="quotes-table"><thead><tr><th>Folio</th><th>Cliente</th><th>Fecha</th><th>Pago</th><th>Estado</th><th className="amount-cell">Total</th><th aria-label="Acciones" /></tr></thead>
-        <tbody>{data.sales.map((sale) => <tr key={sale.id}><td><strong>{sale.number}</strong><div className="quote-title-cell"><span>{sale.items[0]?.description}{sale.items.length > 1 ? ` +${sale.items.length - 1}` : ""}</span></div></td><td>{sale.customerName}</td><td className="date-cell">{formatDate(sale.soldAt, true)}</td><td>{payLabel[sale.paymentMethod]}</td><td><span className={`status-badge status-${sale.status === "paid" ? "accepted" : sale.status === "pending" ? "sent" : "draft"}`}><i />{statusLabel[sale.status]}</span></td><td className="amount-cell"><strong>{money(sale.totalCents, currency)}</strong></td><td><div className="row-actions">{sale.status === "paid" && <button className="icon-button" title="Comprobante de pago" aria-label={`Comprobante de ${sale.number}`} onClick={() => onReceipt(sale)}><FileText size={15} /></button>}<button className="icon-button" aria-label={`Editar ${sale.number}`} onClick={() => setEditing(sale)}><Pencil size={15} /></button><button className="icon-button danger-hover" aria-label={`Eliminar ${sale.number}`} onClick={() => onDelete(sale)}><Trash2 size={15} /></button></div></td></tr>)}</tbody>
+        <tbody>{data.sales.map((sale) => <tr key={sale.id}><td><strong>{sale.number}</strong><div className="quote-title-cell"><span>{sale.items[0]?.description}{sale.items.length > 1 ? ` +${sale.items.length - 1}` : ""}</span></div></td><td>{sale.customerName}</td><td className="date-cell">{formatDate(sale.soldAt, true)}</td><td>{payLabel[sale.paymentMethod]}</td><td><span className={`status-badge status-${sale.status === "paid" ? "accepted" : sale.status === "pending" ? "sent" : "draft"}`}><i />{statusLabel[sale.status]}</span></td><td className="amount-cell"><strong>{money(sale.totalCents, currency)}</strong></td><td><div className="row-actions">{sale.status === "paid" && <button className="icon-button" title="Comprobante de pago PDF" aria-label={`Comprobante de ${sale.number}`} onClick={() => onReceipt(sale)}><FileText size={15} /></button>}{sale.status === "paid" && <button className="icon-button" title="Enviar comprobante" aria-label={`Enviar comprobante ${sale.number}`} onClick={() => setSharing(sale)}><Send size={15} /></button>}<button className="icon-button" aria-label={`Editar ${sale.number}`} onClick={() => setEditing(sale)}><Pencil size={15} /></button><button className="icon-button danger-hover" aria-label={`Eliminar ${sale.number}`} onClick={() => onDelete(sale)}><Trash2 size={15} /></button></div></td></tr>)}</tbody>
       </table></div>
       {!data.sales.length && <EmptyState title="Tu primera venta está por escribirse" description="Registra un cobro, o convierte una cotización aprobada. El reporte mensual se arma solo." onAction={() => setEditing("new")} action="Registrar venta" />}
     </section>
     {editing && <SaleForm sale={editing === "new" ? undefined : editing} customers={data.customers} taxRate={data.settings.taxRate} currency={currency} onClose={() => setEditing(null)} onSave={async (input) => { await onSave(input); setEditing(null); }} />}
+    {sharing && <ReceiptShareModal sale={sharing} customer={data.customers.find((customer) => customer.id === sharing.customerId)} business={data.settings} onClose={() => setSharing(null)} />}
   </div>;
 }
 
