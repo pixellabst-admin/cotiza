@@ -1,6 +1,79 @@
 import type { Business, Customer, Expense, Period, Quote, Sale } from "./types";
 import { calculateTotals, dateInput, formatDate, money, socialLinks, statusMeta } from "./utils";
 
+const paymentLabel: Record<string, string> = { cash: "Efectivo", transfer: "Transferencia bancaria", card: "Tarjeta", other: "Otro" };
+
+export async function downloadPaymentReceipt(sale: Sale, customer: Customer | undefined, business: Business) {
+  const currency = business.currency;
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF();
+  const clean = (value: string) => value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
+  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" | "center" = "left") => {
+    doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(clean(value), x, y, { align });
+  };
+  let nameX = 20;
+  doc.setFillColor(237, 247, 242); doc.rect(0, 0, 210, 46, "F");
+  if (business.logoData) {
+    try {
+      doc.addImage(business.logoData, business.logoData.includes("jpeg") ? "JPEG" : "PNG", 20, 12, 34, 18);
+      nameX = 58;
+    } catch { /* ignore */ }
+  }
+  text(business.name, nameX, 19, 17, true, "#208363");
+  text("COMPROBANTE DE PAGO", 190, 18, 12, true, "#4f6f55", "right");
+  text(sale.number, 190, 30, 11, false, "#5f7567", "right");
+  text(business.email, nameX, 30, 9, false, "#648073");
+  if (business.phone) text(business.phone, nameX, 37, 9, false, "#648073");
+
+  text(`Fecha: ${formatDate(sale.soldAt, true)}`, 20, 60, 10);
+  text(`Recibí de: ${sale.customerName || customer?.name || "Cliente"}`, 20, 69, 11, true);
+  if (customer?.contact) text(customer.contact, 20, 76, 9, false, "#65766d");
+  text(`Forma de pago: ${paymentLabel[sale.paymentMethod] || sale.paymentMethod}`, 20, 86, 11, true);
+
+  let y = 101;
+  doc.setFillColor(243, 246, 244); doc.roundedRect(20, y, 170, 11, 2, 2, "F");
+  text("CONCEPTO", 24, y + 7, 8, true, "#758179");
+  text("CANT.", 123, y + 7, 8, true, "#758179", "right");
+  text("PRECIO", 156, y + 7, 8, true, "#758179", "right");
+  text("IMPORTE", 186, y + 7, 8, true, "#758179", "right");
+  y += 16;
+  for (const item of sale.items) {
+    text(item.description, 24, y, 10);
+    text(String(item.quantity), 123, y, 9, false, "#65766d", "right");
+    text(money(Math.round(item.unitPrice * 100), currency), 156, y, 9, false, "#65766d", "right");
+    text(money(Math.round(item.unitPrice * item.quantity * 100), currency), 186, y, 9, true, "#263d34", "right");
+    y += 9;
+  }
+  y += 6;
+  text("Subtotal", 119, y, 10, false, "#65766d"); text(money(sale.subtotalCents, currency), 186, y, 10, false, "#263d34", "right"); y += 8;
+  text(`IVA (${sale.taxRate}%)`, 119, y, 10, false, "#65766d"); text(money(sale.taxCents, currency), 186, y, 10, false, "#263d34", "right"); y += 10;
+  doc.setFillColor(237, 247, 242); doc.roundedRect(114, y, 76, 17, 2, 2, "F");
+  text("TOTAL PAGADO", 119, y + 11, 12, true, "#208363"); text(money(sale.totalCents, currency), 186, y + 11, 14, true, "#208363", "right");
+  y += 30;
+
+  doc.setDrawColor(185, 74, 62); doc.setTextColor(185, 74, 62);
+  doc.setLineWidth(1.2);
+  doc.roundedRect(132, y - 5, 52, 22, 3, 3, "S");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(19);
+  text(sale.status === "paid" ? "CANCELADO" : sale.status === "pending" ? "PENDIENTE" : "CANCELADO", 158, y + 10, 19, true, "#b94a3e", "center");
+  doc.setLineWidth(0.2);
+
+  y = Math.max(y + 38, 218);
+  doc.setFillColor(255, 249, 236); doc.roundedRect(20, y, 170, 24, 2, 2, "F");
+  text("Documento no fiscal", 24, y + 9, 10, true, "#8a6a2b");
+  doc.setFontSize(9); doc.setTextColor(106, 92, 55);
+  doc.text(doc.splitTextToSize("Este documento no es un comprobante fiscal. Solo confirma la recepción del pago y los detalles indicados; no sustituye factura, ticket fiscal ni recibo autorizado por la autoridad correspondiente.", 160), 24, y + 16);
+  if (sale.notes) {
+    doc.setTextColor(90, 101, 91); doc.setFontSize(9);
+    const lines = doc.splitTextToSize(`Notas: ${sale.notes}`, 170);
+    doc.text(lines, 20, y + 36);
+  }
+  doc.setDrawColor(232, 238, 234); doc.line(20, 280, 190, 280);
+  text(`${business.name}${business.address ? ` · ${business.address}` : ""}`, 20, 287, 8, false, "#829087");
+  text("Gracias por tu compra", 190, 287, 8, false, "#829087", "right");
+  doc.save(`comprobante-${sale.number}.pdf`);
+}
+
 export function downloadCsv(quotes: Quote[], customers: Customer[]) {
   const escape = (value: unknown) => {
     let text = String(value ?? "");
@@ -24,7 +97,7 @@ export async function downloadQuotesPdfReport(quotes: Quote[], customers: Custom
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF();
   const label = period === "year" ? String(new Date().getFullYear()) : period === "previous" ? "Mes anterior" : "Este mes";
-  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" = "left") => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(value, x, y, { align }); };
+  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" | "center" = "left") => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(value, x, y, { align }); };
   doc.setFillColor(237, 247, 242); doc.rect(0, 0, 210, 38, "F");
   text(business.name, 20, 18, 17, true, "#208363"); text("REPORTE DE COTIZACIONES", 190, 16, 11, true, "#557567", "right"); text(label, 190, 27, 9, false, "#65766d", "right");
   let y = 52;
@@ -43,7 +116,7 @@ export async function downloadSalesPdfReport(sales: Sale[], business: Business, 
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF();
   const label = period === "year" ? String(new Date().getFullYear()) : period === "previous" ? "Mes anterior" : "Este mes";
-  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" = "left") => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(value, x, y, { align }); };
+  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" | "center" = "left") => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(value, x, y, { align }); };
   doc.setFillColor(237, 247, 242); doc.rect(0, 0, 210, 38, "F");
   text(business.name, 20, 18, 17, true, "#208363"); text("REPORTE DE VENTAS", 190, 16, 11, true, "#557567", "right"); text(label, 190, 27, 9, false, "#65766d", "right");
   let y = 52;
@@ -95,7 +168,7 @@ export async function downloadExpensesExcel(expenses: Expense[]) {
 export async function downloadExpensesPdf(expenses: Expense[], business: Business, periodLabel: string) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF();
-  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" = "left") => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(value, x, y, { align }); };
+  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" | "center" = "left") => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(value, x, y, { align }); };
   doc.setFillColor(237, 247, 242); doc.rect(0, 0, 210, 38, "F");
   text(business.name, 20, 18, 17, true, "#208363"); text("REPORTE DE GASTOS", 190, 16, 11, true, "#557567", "right"); text(periodLabel, 190, 27, 9, false, "#65766d", "right");
   let y = 52;
@@ -171,7 +244,7 @@ export async function downloadQuotePdf(quote: Quote, customer: Customer, busines
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF();
   const clean = (text: string) => text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
-  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" = "left") => {
+  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" | "center" = "left") => {
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setFontSize(size);
     doc.setTextColor(color);
