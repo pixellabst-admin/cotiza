@@ -1,11 +1,12 @@
-import type { customers, quotes, businessSettings, sales } from "@/db/schema";
+import type { customers, quotes, businessSettings, sales, expenses } from "@/db/schema";
 export type { QuoteItem, QuoteStatus, ShareChannel, SaleItem, SaleStatus, PaymentMethod } from "@/db/schema";
 export type Customer = Omit<typeof customers.$inferSelect, "createdAt"> & { createdAt: string };
 export type Quote = Omit<typeof quotes.$inferSelect, "createdAt"> & { createdAt: string };
 export type Sale = Omit<typeof sales.$inferSelect, "createdAt"> & { createdAt: string };
+export type Expense = Omit<typeof expenses.$inferSelect, "createdAt"> & { createdAt: string };
 export type Business = typeof businessSettings.$inferSelect;
-export type AppData = { customers: Customer[]; quotes: Quote[]; sales: Sale[]; settings: Business };
-export type View = "dashboard" | "quotes" | "customers" | "sales" | "reports" | "settings";
+export type AppData = { customers: Customer[]; quotes: Quote[]; sales: Sale[]; expenses: Expense[]; settings: Business };
+export type View = "dashboard" | "quotes" | "customers" | "sales" | "expenses" | "reports" | "settings";
 export type Period = "month" | "previous" | "year";
 export type QuoteInput = {
   id?: number;

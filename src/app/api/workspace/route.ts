@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { businessSettings, customers, quotes, sales } from "@/db/schema";
+import { businessSettings, customers, quotes, sales, expenses } from "@/db/schema";
 import { ensureSeed, getAppData } from "@/lib/data";
 import { getSessionUser } from "@/lib/auth";
 import { addDays, calculateTotals, dateInput } from "@/lib/utils";
@@ -238,6 +238,43 @@ export async function POST(request: NextRequest) {
           }).returning();
           resultId = created.id;
         });
+        break;
+      }
+      case "saveExpense": {
+        const input = z.object({
+          id: idSchema.optional(),
+          description: z.string().trim().min(2, "Describe la compra o el gasto").max(240),
+          category: z.string().trim().min(1).max(60),
+          supplier: z.string().trim().max(180),
+          spentAt: dateSchema,
+          amount: z.number().nonnegative("El importe debe ser positivo").max(1000000000),
+          paymentMethod: z.enum(["cash", "transfer", "card", "other"]),
+          status: z.enum(["paid", "pending", "cancelled"]),
+          kind: z.enum(["purchase", "expense"]),
+          notes: z.string().max(2000),
+        }).parse(body);
+        const amountCents = Math.round(input.amount * 100);
+        const { id, amount, ...values } = input;
+        if (id) {
+          await db.update(expenses).set({ ...values, amountCents }).where(eq(expenses.id, id));
+          resultId = id;
+        } else {
+          await db.transaction(async (tx) => {
+            const existing = await tx.select({ number: expenses.number }).from(expenses);
+            let max = 0;
+            for (const row of existing) {
+              const match = row.number.match(/(\d+)$/);
+              if (match) max = Math.max(max, Number(match[1]));
+            }
+            const [created] = await tx.insert(expenses).values({ ...values, amountCents, number: `GAS-${String(max + 1).padStart(4, "0")}` }).returning();
+            resultId = created.id;
+          });
+        }
+        break;
+      }
+      case "deleteExpense": {
+        const { id } = z.object({ id: idSchema }).parse(body);
+        await db.delete(expenses).where(eq(expenses.id, id));
         break;
       }
       default: return NextResponse.json({ error: "Operación no reconocida" }, { status: 400 });

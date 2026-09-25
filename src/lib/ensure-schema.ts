@@ -97,6 +97,23 @@ async function createTables() {
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "theme_mode" varchar(10) DEFAULT 'light' NOT NULL`);
   await db.execute(sql`ALTER TABLE "business_settings" ADD COLUMN IF NOT EXISTS "theme_accent" varchar(16) DEFAULT 'green' NOT NULL`);
   await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "expenses" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "number" varchar(60) NOT NULL,
+      "description" varchar(240) NOT NULL,
+      "category" varchar(60) DEFAULT 'general' NOT NULL,
+      "supplier" varchar(180) DEFAULT '' NOT NULL,
+      "spent_at" date NOT NULL,
+      "amount_cents" integer NOT NULL,
+      "payment_method" text DEFAULT 'transfer' NOT NULL,
+      "status" text DEFAULT 'paid' NOT NULL,
+      "kind" text DEFAULT 'expense' NOT NULL,
+      "notes" text DEFAULT '' NOT NULL,
+      "created_at" timestamp DEFAULT now() NOT NULL
+    )
+  `);
+  await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS "expenses_number_unique" ON "expenses" ("number")`);
+  await db.execute(sql`
     CREATE TABLE IF NOT EXISTS "sales" (
       "id" serial PRIMARY KEY NOT NULL,
       "number" varchar(60) NOT NULL,

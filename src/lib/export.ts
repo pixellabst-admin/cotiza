@@ -1,4 +1,4 @@
-import type { Business, Customer, Period, Quote, Sale } from "./types";
+import type { Business, Customer, Expense, Period, Quote, Sale } from "./types";
 import { calculateTotals, dateInput, formatDate, money, socialLinks, statusMeta } from "./utils";
 
 export function downloadCsv(quotes: Quote[], customers: Customer[]) {
@@ -57,6 +57,57 @@ export async function downloadSalesPdfReport(sales: Sale[], business: Business, 
   y += 8;
   text("TOTAL", 145, y, 11, true, "#208363"); text(money(total, business.currency), 186, y, 12, true, "#208363", "right");
   doc.save(`reporte-ventas-${dateInput()}.pdf`);
+}
+
+export function downloadExpensesCsv(expenses: Expense[]) {
+  const escape = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const rows = [
+    ["Folio", "Tipo", "Descripción", "Categoría", "Proveedor", "Fecha", "Pago", "Estado", "Monto"],
+    ...expenses.map((expense) => [expense.number, expense.kind === "purchase" ? "Compra" : "Gasto", expense.description, expense.category, expense.supplier, expense.spentAt, expense.paymentMethod, expense.status, (expense.amountCents / 100).toFixed(2)]),
+  ];
+  const blob = new Blob(["\uFEFF" + rows.map((row) => row.map(escape).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url; link.download = `gastos-${dateInput()}.csv`; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function downloadExpensesExcel(expenses: Expense[]) {
+  const XLSX = await import("xlsx");
+  const rows = expenses.map((expense) => ({
+    Folio: expense.number,
+    Tipo: expense.kind === "purchase" ? "Compra" : "Gasto",
+    Descripción: expense.description,
+    Categoría: expense.category,
+    Proveedor: expense.supplier,
+    Fecha: expense.spentAt,
+    Pago: expense.paymentMethod,
+    Estado: expense.status,
+    Monto: expense.amountCents / 100,
+  }));
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  worksheet["!cols"] = [{ wch: 10 }, { wch: 10 }, { wch: 32 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 13 }, { wch: 12 }, { wch: 12 }];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Gastos");
+  XLSX.writeFile(workbook, `gastos-${dateInput()}.xlsx`);
+}
+
+export async function downloadExpensesPdf(expenses: Expense[], business: Business, periodLabel: string) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF();
+  const text = (value: string, x: number, y: number, size = 10, bold = false, color = "#263d34", align: "left" | "right" = "left") => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); doc.setTextColor(color); doc.text(value, x, y, { align }); };
+  doc.setFillColor(237, 247, 242); doc.rect(0, 0, 210, 38, "F");
+  text(business.name, 20, 18, 17, true, "#208363"); text("REPORTE DE GASTOS", 190, 16, 11, true, "#557567", "right"); text(periodLabel, 190, 27, 9, false, "#65766d", "right");
+  let y = 52;
+  const active = expenses.filter((expense) => expense.status !== "cancelled");
+  const total = active.filter((expense) => expense.status === "paid").reduce((sum, expense) => sum + expense.amountCents, 0);
+  text("Total pagado", 20, y, 12, true, "#8a5a2b"); text(money(total, business.currency), 190, y, 13, true, "#8a5a2b", "right"); y += 12;
+  for (const expense of active) {
+    if (y > 275) { doc.addPage(); y = 24; }
+    text(expense.number, 20, y, 9, true); text(expense.description.slice(0, 55), 55, y, 9); text(expense.category.slice(0, 28), 120, y, 8, false, "#758179"); text(money(expense.amountCents, business.currency), 186, y, 9, true, expense.kind === "purchase" ? "#4f6f45" : "#8a5a2b", "right"); y += 7;
+    text(`${expense.kind === "purchase" ? "Compra" : "Gasto"} · ${expense.spentAt} · ${expense.status}`, 55, y, 8, false, "#9aa298"); y += 7;
+  }
+  doc.save(`reporte-gastos-${dateInput()}.pdf`);
 }
 
 export async function downloadChangesPdf(changes: { quote: Quote; customer: Customer }[], business: Business, periodLabel: string) {

@@ -20,3 +20,4 @@ body{color:#344239}.page-heading h1{color:#2d3c33}.page-heading p{color:#818c84}
   .table-toolbar .search-field{width:100%}
   .table-toolbar .filter-button{display:none}
 }
+.sales-bar-fill.expense-fill{background:linear-gradient(180deg,#e6c17e,#b98524)!important}

@@ -78,6 +78,21 @@ export const businessSettings = pgTable("business_settings", {
   themeAccent: varchar("theme_accent", { length: 16 }).notNull().default("green"),
 });
 
+export const expenses = pgTable("expenses", {
+  id: serial("id").primaryKey(),
+  number: varchar("number", { length: 60 }).notNull().unique(),
+  description: varchar("description", { length: 240 }).notNull(),
+  category: varchar("category", { length: 60 }).notNull().default("general"),
+  supplier: varchar("supplier", { length: 180 }).notNull().default(""),
+  spentAt: date("spent_at").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  paymentMethod: text("payment_method", { enum: ["cash", "transfer", "card", "other"] }).notNull().default("transfer"),
+  status: text("status", { enum: ["paid", "pending", "cancelled"] }).notNull().default("paid"),
+  kind: text("kind", { enum: ["purchase", "expense"] }).notNull().default("expense"),
+  notes: text("notes").notNull().default(""),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
   number: varchar("number", { length: 60 }).notNull().unique(),

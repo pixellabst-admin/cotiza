@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { businessSettings, customers, quotes, sales } from "@/db/schema";
+import { businessSettings, customers, quotes, sales, expenses } from "@/db/schema";
 import type { QuoteItem, QuoteStatus, ShareChannel } from "@/db/schema";
 import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { addDays, calculateTotals, dateInput, effectiveStatus } from "./utils";
@@ -73,10 +73,11 @@ async function seedWorkspace() {
 export async function getAppData(): Promise<AppData> {
   await ensureSeed();
   await db.update(quotes).set({ status: "archived" }).where(and(inArray(quotes.status, ["sent", "review", "expired"]), lt(quotes.validUntil, dateInput())));
-  const [allCustomers, allQuotes, allSales, [settings]] = await Promise.all([
+  const [allCustomers, allQuotes, allSales, allExpenses, [settings]] = await Promise.all([
     db.select().from(customers).orderBy(desc(customers.createdAt)),
     db.select().from(quotes).orderBy(desc(quotes.issueDate), desc(quotes.createdAt)),
     db.select().from(sales).orderBy(desc(sales.soldAt), desc(sales.createdAt)),
+    db.select().from(expenses).orderBy(desc(expenses.spentAt), desc(expenses.createdAt)),
     db.select().from(businessSettings).where(eq(businessSettings.id, 1)),
   ]);
   if (!settings) {
@@ -93,6 +94,7 @@ export async function getAppData(): Promise<AppData> {
       return { ...serialized, status: effectiveStatus(serialized) };
     }),
     sales: allSales.map((sale) => ({ ...sale, createdAt: sale.createdAt.toISOString() })),
+    expenses: allExpenses.map((expense) => ({ ...expense, createdAt: expense.createdAt.toISOString() })),
     settings,
   };
 }
