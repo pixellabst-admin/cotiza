@@ -46,6 +46,11 @@ export async function downloadPaymentReceipt(sale: Sale, customer: Customer | un
   }
   y += 6;
   text("Subtotal", 119, y, 10, false, "#65766d"); text(money(sale.subtotalCents, currency), 186, y, 10, false, "#263d34", "right"); y += 8;
+  const { discountCents } = calculateTotals(sale.items, sale.taxRate, sale.discountPercent || 0);
+  if (discountCents > 0) {
+    text(`Descuento (${Number(sale.discountPercent || 0)}%)`, 119, y, 10, false, "#b07a2c");
+    text(`-${money(discountCents, currency)}`, 186, y, 10, false, "#b07a2c", "right"); y += 8;
+  }
   text(`IVA (${sale.taxRate}%)`, 119, y, 10, false, "#65766d"); text(money(sale.taxCents, currency), 186, y, 10, false, "#263d34", "right"); y += 10;
   doc.setFillColor(237, 247, 242); doc.roundedRect(114, y, 76, 17, 2, 2, "F");
   text("TOTAL PAGADO", 119, y + 11, 12, true, "#208363"); text(money(sale.totalCents, currency), 186, y + 11, 14, true, "#208363", "right");

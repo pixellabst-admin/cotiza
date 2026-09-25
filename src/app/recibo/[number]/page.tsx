@@ -19,6 +19,8 @@ export default async function ReceiptPage({ params }: { params: Promise<{ number
   const [customer] = sale.customerId ? await db.select().from(customers).where(eq(customers.id, sale.customerId)).limit(1) : [];
   const [business] = await db.select().from(businessSettings).limit(1);
   const currency = business?.currency || "MXN";
+  const rawSubtotal = sale.items.reduce((sum, item) => sum + Math.round(item.quantity * item.unitPrice * 100), 0);
+  const discountCents = Math.round(rawSubtotal * (Number(sale.discountPercent || 0) / 100));
   return (
     <div className="public-page">
       <header className="public-header"><span><strong>{business?.name || "Comprobante de pago"}</strong></span><span>{sale.number}</span></header>
@@ -38,7 +40,12 @@ export default async function ReceiptPage({ params }: { params: Promise<{ number
           <table className="document-table">
             <thead><tr><th>Concepto</th><th>Cant.</th><th>Precio</th><th>Importe</th></tr></thead>
             <tbody>{sale.items.map((item, index) => <tr key={index}><td>{item.description}</td><td>{item.quantity}</td><td>{money(Math.round(item.unitPrice * 100), currency)}</td><td>{money(Math.round(item.unitPrice * item.quantity * 100), currency)}</td></tr>)}</tbody>
-            <tfoot><tr><td colSpan={3}>Total pagado</td><td>{money(sale.totalCents, currency)}</td></tr></tfoot>
+            <tfoot>
+              <tr><td colSpan={3}>Subtotal</td><td>{money(sale.subtotalCents, currency)}</td></tr>
+              {discountCents > 0 && <tr><td colSpan={3}>Descuento ({Number(sale.discountPercent || 0)}%)</td><td>-{money(discountCents, currency)}</td></tr>}
+              <tr><td colSpan={3}>IVA ({sale.taxRate}%)</td><td>{money(sale.taxCents, currency)}</td></tr>
+              <tr><td colSpan={3}><strong>Total pagado</strong></td><td><strong>{money(sale.totalCents, currency)}</strong></td></tr>
+            </tfoot>
           </table>
           <div className="receipt-stamp">CANCELADO</div>
           <div className="receipt-legal">

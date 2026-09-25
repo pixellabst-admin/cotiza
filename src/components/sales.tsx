@@ -13,7 +13,7 @@ const statusLabel: Record<SaleStatus, string> = { paid: "Pagada", pending: "Por 
 export function SalesDesk({ data, periodPrefix, onSave, onDelete, onFromQuote, onExport, onReceipt }: {
   data: AppData;
   periodPrefix: string;
-  onSave: (input: Omit<Sale, "id" | "number" | "createdAt" | "subtotalCents" | "taxCents" | "totalCents"> & { id?: number }) => Promise<void>;
+  onSave: (input: Omit<Sale, "id" | "number" | "createdAt" | "subtotalCents" | "taxCents" | "totalCents" | "discountPercent"> & { id?: number; discountPercent?: number }) => Promise<void>;
   onDelete: (sale: Sale) => void;
   onFromQuote: (quote: Quote) => Promise<void>;
   onExport: () => void;
@@ -72,25 +72,26 @@ export function SalesDesk({ data, periodPrefix, onSave, onDelete, onFromQuote, o
 function SaleForm({ sale, customers, taxRate, currency, onClose, onSave }: {
   sale?: Sale; customers: Customer[]; taxRate: number; currency: string;
   onClose: () => void;
-  onSave: (input: Omit<Sale, "id" | "number" | "createdAt" | "subtotalCents" | "taxCents" | "totalCents"> & { id?: number }) => Promise<void>;
+  onSave: (input: Omit<Sale, "id" | "number" | "createdAt" | "subtotalCents" | "taxCents" | "totalCents" | "discountPercent"> & { id?: number; discountPercent?: number }) => Promise<void>;
 }) {
   const [customerId, setCustomerId] = useState<number | "">(sale?.customerId ?? "");
   const [customerName, setCustomerName] = useState(sale?.customerName ?? "");
   const [soldAt, setSoldAt] = useState(sale?.soldAt ?? dateInput());
   const [items, setItems] = useState<SaleItem[]>(sale?.items?.length ? sale.items.map((item) => ({ ...item })) : [{ description: "", quantity: 1, unitPrice: 0 }]);
   const [rate, setRate] = useState(sale?.taxRate ?? taxRate);
+  const [discountPercent, setDiscountPercent] = useState(sale?.discountPercent ?? 0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(sale?.paymentMethod ?? "transfer");
   const [status, setStatus] = useState<SaleStatus>(sale?.status ?? "paid");
   const [notes, setNotes] = useState(sale?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const totals = calculateTotals(items, rate, 0);
+  const totals = calculateTotals(items, rate, discountPercent);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSaving(true); setError("");
     try {
-      await onSave({ id: sale?.id, customerId: customerId || null, customerName, soldAt, items, taxRate: rate, paymentMethod, status, notes, quoteId: sale?.quoteId ?? null });
+      await onSave({ id: sale?.id, customerId: customerId || null, customerName, soldAt, items, taxRate: rate, discountPercent, paymentMethod, status, notes, quoteId: sale?.quoteId ?? null });
     } catch (problem) {
       setError(problem instanceof Error ? problem.message : "No pudimos guardar la venta");
       setSaving(false);
@@ -121,9 +122,10 @@ function SaleForm({ sale, customers, taxRate, currency, onClose, onSave }: {
         <div className="form-grid" style={{ marginTop: 16 }}>
           <label className="form-field">Estado<select value={status} onChange={(event) => setStatus(event.target.value as SaleStatus)}><option value="paid">Pagada</option><option value="pending">Por cobrar</option><option value="cancelled">Cancelada</option></select></label>
           <label className="form-field">IVA %<input type="number" min={0} max={100} step="0.01" value={rate} onChange={(event) => setRate(Number(event.target.value))} /></label>
+          <label className="form-field">Descuento %<input type="number" min={0} max={100} step="0.01" value={discountPercent} onChange={(event) => setDiscountPercent(Number(event.target.value))} /></label>
           <label className="form-field full-width">Notas<textarea rows={2} maxLength={2000} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
         </div>
-        <div className="editor-totals" style={{ marginTop: 12 }}><div><span>Subtotal</span><strong>{money(totals.subtotalCents, currency)}</strong></div><div><span>IVA</span><strong>{money(totals.taxCents, currency)}</strong></div><div className="editor-grand-total"><span>Total</span><strong>{money(totals.totalCents, currency)}</strong></div></div>
+        <div className="editor-totals" style={{ marginTop: 12 }}><div><span>Subtotal</span><strong>{money(totals.subtotalCents, currency)}</strong></div>{totals.discountCents > 0 && <div><span>Descuento ({discountPercent}%)</span><strong>-{money(totals.discountCents, currency)}</strong></div>}<div><span>IVA</span><strong>{money(totals.taxCents, currency)}</strong></div><div className="editor-grand-total"><span>Total</span><strong>{money(totals.totalCents, currency)}</strong></div></div>
         {error && <div className="form-error" role="alert">{error}</div>}
       </div>
       <footer className="modal-footer"><button type="button" className="button button-secondary" disabled={saving} onClick={onClose}>Cancelar</button><button className="button button-primary" disabled={saving}>{saving ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}Guardar venta</button></footer>

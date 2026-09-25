@@ -177,12 +177,13 @@ export async function POST(request: NextRequest) {
           soldAt: dateSchema,
           items: z.array(z.object({ description: z.string().trim().min(1).max(500), quantity: z.number().positive().max(10000), unitPrice: z.number().min(0).max(1000000) })).min(1).max(40),
           taxRate: z.number().min(0).max(100),
+          discountPercent: z.number().min(0).max(100).optional().default(0),
           paymentMethod: z.enum(["cash", "transfer", "card", "other"]),
           status: z.enum(["paid", "pending", "cancelled"]),
           notes: z.string().max(2000),
           quoteId: z.number().int().positive().optional().nullable(),
         }).parse(body);
-        const { discountCents: _d, ...totals } = calculateTotals(input.items, input.taxRate, 0);
+        const { discountCents: _d, ...totals } = calculateTotals(input.items, input.taxRate, input.discountPercent || 0);
         const { id, ...values } = input;
         if (id) {
           await db.update(sales).set({ ...values, ...totals }).where(eq(sales.id, id));
@@ -231,6 +232,7 @@ export async function POST(request: NextRequest) {
             taxCents: quote.taxCents,
             totalCents: quote.totalCents,
             taxRate: quote.taxRate,
+            discountPercent: quote.discountPercent,
             paymentMethod: "transfer",
             status: "paid",
             notes: `Desde ${quote.number} · ${quote.title}`,

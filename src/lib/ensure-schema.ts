@@ -112,6 +112,7 @@ async function createTables() {
       "created_at" timestamp DEFAULT now() NOT NULL
     )
   `);
+  await db.execute(sql`ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "discount_percent" double precision DEFAULT 0 NOT NULL`);
   await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS "expenses_number_unique" ON "expenses" ("number")`);
   await db.execute(sql`ALTER TABLE "expenses" ADD COLUMN IF NOT EXISTS "receipt_photo" text DEFAULT '' NOT NULL`);
   await db.execute(sql`
@@ -126,6 +127,7 @@ async function createTables() {
       "tax_cents" integer NOT NULL,
       "total_cents" integer NOT NULL,
       "tax_rate" double precision DEFAULT 16 NOT NULL,
+      "discount_percent" double precision DEFAULT 0 NOT NULL,
       "payment_method" text DEFAULT 'transfer' NOT NULL,
       "status" text DEFAULT 'paid' NOT NULL,
       "notes" text DEFAULT '' NOT NULL,

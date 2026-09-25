@@ -105,6 +105,7 @@ export const sales = pgTable("sales", {
   taxCents: integer("tax_cents").notNull(),
   totalCents: integer("total_cents").notNull(),
   taxRate: doublePrecision("tax_rate").notNull().default(16),
+  discountPercent: doublePrecision("discount_percent").notNull().default(0),
   paymentMethod: text("payment_method", { enum: ["cash", "transfer", "card", "other"] }).notNull().default("transfer"),
   status: text("status", { enum: ["paid", "pending", "cancelled"] }).notNull().default("paid"),
   notes: text("notes").notNull().default(""),
